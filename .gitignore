@@ -13,3 +13,7 @@ coverage
 # Persönliche Trade-Daten (falls der Projektordner als Speicherort gewählt wurde)
 osrs-ge-flipper-daten.json
 trades.csv
+
+# Desktop-Build
+/desktop/build/
+/desktop/*.exe

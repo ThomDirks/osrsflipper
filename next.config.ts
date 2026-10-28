@@ -23,6 +23,9 @@ const csp = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Eigenständiger Server-Build (für die Windows-Desktop-Version ohne npm install)
+  output: "standalone",
+  images: { unoptimized: true },
   poweredByHeader: false,
   async headers() {
     return [

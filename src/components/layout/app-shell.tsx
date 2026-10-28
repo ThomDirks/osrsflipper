@@ -9,8 +9,6 @@ import { DataStatus, FixtureBanner, StaleBanner } from "./data-status";
 import { MOBILE_TABS, NAV, NAV_TONES } from "./nav";
 import { SearchCommand } from "./search-command";
 import { FolderStatusChip } from "./folder-sync";
-import { AppUpdateLink } from "./app-update";
-import { WordleGate } from "./wordle-gate";
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
@@ -77,7 +75,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
       <FixtureBanner />
-      <WordleGate />
       {/* Desktop-Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-surface px-3 py-4 md:flex">
         <Logo />
@@ -103,7 +100,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link className="underline hover:text-muted" href="/privacy">Privacy</Link>
           </p>
           <p>Not an official Jagex product.</p>
-          <AppUpdateLink />
         </div>
       </aside>
 
@@ -124,8 +120,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/privacy" onClick={() => setDrawer(false)} className="underline">Privacy</Link>
             </p>
             <div className="mt-2 text-[11px] text-faint">
-              <AppUpdateLink />
-            </div>
+                </div>
           </div>
         </div>
       )}

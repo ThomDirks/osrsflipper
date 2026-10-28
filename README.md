@@ -35,7 +35,7 @@ Datenbasierter Trading-Assistent für den **Old School RuneScape Grand Exchange*
 | **Flip-Historie** | Speicherung wahlweise in einem **Ordner deiner Wahl** auf dem eigenen Computer (`osrs-ge-flipper-daten.json` + `trades.csv` für Excel; Chrome/Edge). Trades mit mehreren Kaufchargen, Teilverkäufen, Gebühren, offenen Kaufangeboten, Notizen und Änderungshistorie. Gewinne nach FIFO, Überverkäufe werden blockiert. Filter nach Item, Status, Ergebnis und Datum. **Import aus RuneLite** (CSV-Export des Plugins Flipping Utilities) mit Vorschau; erneuter Import ergänzt nur Neues. |
 | **Portfolio** | Kapitalbuchungen und manueller Abgleich, Cash/Reserve/Verfügbar/Gebunden ohne Doppelzählung, offene Positionen mit geschätztem Marktwert, Kapitalverteilung, Positionsregeln mit Warnungen (inkl. GE-Slots). |
 | **Watchlist** | Favoriten, Notizen, Zielpreise, Zielmarge und Ziel-ROI. |
-| **Einstellungen** | Hell (Pergament-Braun wie das OSRS Wiki) / Dunkel, Standardkapital, Über-/Unterbieten, GE-Slots, **Anfrage-Limiter** (nach x Anfragen an die Markt-API pausieren die Live-Daten, bis ein Wordle gelöst ist; abschaltbar), JSON-Export/-Import, Daten löschen. |
+| **Einstellungen** | Hell (Pergament-Braun wie das OSRS Wiki) / Dunkel, Standardkapital, Über-/Unterbieten, GE-Slots, JSON-Export/-Import, Daten löschen. |
 
 ## Schnellstart
 
@@ -54,15 +54,9 @@ npm run build
 npm start                       # http://localhost:3000
 ```
 
-### App aktualisieren
+### Windows-Desktop-Version (ohne Node.js-Installation)
 
-Läuft die App lokal aus einem Git-Klon, erscheint unten in der Seitenleiste der Link **„Update app“**. Er zeigt die installierte Version, prüft per `git fetch`, ob neue Commits vorliegen, und lädt sie auf Knopfdruck mit `git pull --ff-only` – ohne Konsole. Danach:
-
-- `npm run dev`: Änderungen werden automatisch übernommen, Seite neu laden.
-- Haben sich `package.json`/`package-lock.json` geändert: `npm install` ausführen und neu starten (die App weist darauf hin).
-- `npm start` (Produktions-Build): `npm run build` und neu starten.
-
-Sicherheit: Es werden nur fest definierte Git-Befehle ausgeführt. Die Funktion ist nur über `localhost`/`127.0.0.1` erreichbar, POST nur vom selben Origin, auf Vercel automatisch aus und per `SELF_UPDATE=0` abschaltbar. Lokale Commits werden nie gemergt (`--ff-only`); in diesem Fall zeigt der Dialog die Git-Meldung.
+`desktop/` enthält einen kleinen Starter (Go, nur Standardbibliothek). `desktop/build.sh` baut die App als Next.js-Standalone-Server, packt ihn zusammen mit einer eigenen `node.exe` in **eine einzige Datei** `OSRS GE Flipper.exe`. Beim Start wird alles einmalig nach `%LOCALAPPDATA%\OSRS GE Flipper` entpackt, der Server läuft unsichtbar auf `http://127.0.0.1:47813`, der Browser öffnet sich, und ein Münz-Symbol im Infobereich (Tray) bietet „Öffnen“ und „Beenden“. Ein zweiter Doppelklick öffnet nur einen neuen Tab. Der Port ist fest, weil Browser-Daten an die Adresse gebunden sind.
 
 ## Skripte
 
@@ -85,8 +79,6 @@ Siehe `.env.example`:
 | `WIKI_USER_AGENT` | generischer UA | **Pflicht für Produktion.** Beschreibender User-Agent mit Kontakt (E-Mail/Discord), wie in der API-Doku gefordert. |
 | `MARKET_DATA_SOURCE` | `wiki` | `fixtures` schaltet auf **synthetische Testdaten** (nur für Tests). Die UI zeigt dann ein unübersehbares „TESTDATEN“-Banner. |
 | `API_RATE_LIMIT_PER_MINUTE` | `120` | Rate-Limit der eigenen API-Routen pro IP und Minute. |
-| `SELF_UPDATE` | an | `0` blendet den Link „Update app“ aus und sperrt `/api/update` (auf Vercel immer aus). |
-| `GIT_PATH` | – | Pfad zu `git`, falls es nicht im `PATH` liegt (unter Windows wird zusätzlich `C:\Program Files\Git\cmd\git.exe` versucht). |
 
 Es werden keine Geheimnisse oder API-Schlüssel benötigt.
 
@@ -168,7 +160,6 @@ Alternativ läuft die App auf jeder Node-Plattform mit `npm run build && npm sta
 | Persönliche Daten weg | Browserdaten wurden gelöscht oder der private Modus wurde genutzt. Regelmässig unter Einstellungen exportieren. |
 | E2E-Tests finden keinen Browser | `npx playwright install chromium` |
 | Port belegt | `npm start -- -p 3001` |
-| „Update app“ fehlt | App über `http://localhost:3000` öffnen (nicht über die LAN-IP), Ordner muss ein Git-Klon sein, `git` muss installiert sein (sonst `GIT_PATH` setzen). |
 | Update schlägt fehl („Not possible to fast-forward“) | Lokale Commits weichen vom Remote ab. Im Projektordner manuell `git pull --rebase` oder die Änderungen sichern. |
 
 ## Weitere Dokumentation
