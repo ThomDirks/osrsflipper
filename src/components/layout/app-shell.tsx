@@ -1,10 +1,13 @@
 "use client";
-import { Menu, Moon, Sun, X } from "lucide-react";
+import * as Popover from "@radix-ui/react-popover";
+import { Check, Menu, Palette, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useSettings, useSettingsStore } from "@/state/settings";
+import { THEMES } from "@/lib/ui/themes";
+import { HoldingAlertsBell, HoldingAlertsWatcher } from "./holding-alerts";
 import { DataStatus, FixtureBanner, StaleBanner } from "./data-status";
 import { MOBILE_TABS, NAV, NAV_TONES } from "./nav";
 import { SearchCommand } from "./search-command";
@@ -53,18 +56,43 @@ function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
 function ThemeToggle() {
   const theme = useSettings().theme;
   const update = useSettingsStore((s) => s.update);
-  const next = theme === "dark" ? "light" : "dark";
+  const [open, setOpen] = useState(false);
   return (
-    <button
-      type="button"
-      onClick={() => update({ theme: next })}
-      className="flex size-9 items-center justify-center rounded-full border border-border bg-surface text-accent shadow-card hover:bg-surface-2"
-      aria-label={next === "light" ? "Light theme" : "Dark theme"}
-      title={next === "light" ? "Light theme" : "Dark theme"}
-      data-testid="theme-toggle"
-    >
-      {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-    </button>
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          className="flex size-9 items-center justify-center rounded-full border border-border bg-surface text-accent shadow-card hover:bg-surface-2"
+          aria-label="Theme"
+          title="Theme"
+          data-testid="theme-toggle"
+        >
+          <Palette className="size-4" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content align="end" sideOffset={6} className="z-50 w-60 rounded-lg border border-border bg-surface p-1 shadow-lg animate-fade-in" data-testid="theme-menu">
+          {THEMES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => {
+                update({ theme: t.key });
+                setOpen(false);
+              }}
+              className={cn("flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-2", theme === t.key && "font-semibold")}
+              data-testid={`theme-option-${t.key}`}
+            >
+              <span className="flex overflow-hidden rounded-full border border-border">
+                {t.swatch.map((c) => <span key={c} className="block size-3" style={{ background: c }} />)}
+              </span>
+              <span className="flex-1">{t.label}</span>
+              {theme === t.key && <Check className="size-4 text-accent" />}
+            </button>
+          ))}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -75,6 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
       <FixtureBanner />
+      <HoldingAlertsWatcher />
       {/* Desktop-Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-surface px-3 py-4 md:flex">
         <Logo />
@@ -135,6 +164,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <FolderStatusChip />
           <DataStatus />
+          <HoldingAlertsBell />
           <ThemeToggle />
         </header>
         <StaleBanner />

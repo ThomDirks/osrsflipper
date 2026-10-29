@@ -6,7 +6,7 @@ import { ItemPicker } from "@/components/items/item-picker";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AmountInput, Field, Input } from "@/components/ui/input";
-import { computeFifo } from "@/lib/portfolio/fifo";
+import { computeFifo, estimateOpenSale } from "@/lib/portfolio/fifo";
 import type { Lot, Offer, Sale, Trade } from "@/lib/portfolio/schemas";
 import { newId } from "@/lib/storage/db";
 import { taxTotal } from "@/lib/tax/tax";
@@ -31,7 +31,7 @@ export type Draft = Omit<Trade, "lots" | "sales" | "offers"> & {
   offers: Array<Omit<Offer, "quantity" | "price"> & { quantity: number | null; price: number | null }>;
 };
 
-export function emptyTrade(itemId: number | null = null, itemName = "", prefill?: { price?: number | null; quantity?: number | null }): Draft {
+export function emptyTrade(itemId: number | null = null, itemName = "", prefill?: { price?: number | null; quantity?: number | null; sell?: number | null }): Draft {
   const now = Date.now();
   return {
     id: newId(),
@@ -44,6 +44,7 @@ export function emptyTrade(itemId: number | null = null, itemName = "", prefill?
     offers: [],
     notes: "",
     history: [],
+    targetSell: prefill?.sell ?? null,
   };
 }
 
@@ -75,7 +76,7 @@ export function prepareTrade(
 ): { draft: Draft; mode: "sell" | "buy" } {
   const open = findOpenTrade(trades, item.id);
   if (open) return { draft: tradeWithSale(open, values?.sell ?? null), mode: "sell" };
-  return { draft: emptyTrade(item.id, item.name, { price: values?.buy ?? null, quantity: values?.qty ?? null }), mode: "buy" };
+  return { draft: emptyTrade(item.id, item.name, { price: values?.buy ?? null, quantity: values?.qty ?? null, sell: values?.sell ?? null }), mode: "buy" };
 }
 
 /** Spaltenüberschriften über den Eingabezeilen (gleiches Grid wie die Zeilen; mobil zeigen die Platzhalter die Bedeutung) */
@@ -134,7 +135,7 @@ export function TradeEditor({ initial, open, onOpenChange, mode }: { initial: Tr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={mode === "sell" ? `Log sale – ${d.itemName}` : isNew ? "Log trade" : `Edit trade – ${d.itemName}`} description="Only log buys and sells that actually went through. Open buy offers reserve capital." className="max-w-3xl">
         <div className="space-y-4" data-testid="trade-editor">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Item">
               <ItemPicker
                 value={d.itemId || null}
@@ -144,6 +145,9 @@ export function TradeEditor({ initial, open, onOpenChange, mode }: { initial: Tr
             </Field>
             <Field label="Notes">
               <Input value={d.notes} onChange={(e) => setD((x) => ({ ...x, notes: e.target.value }))} placeholder="optional" />
+            </Field>
+            <Field label="Expected sale price (each)" hint="Price alerts compare against this while you hold">
+              <AmountInput value={d.targetSell ?? null} onChange={(v) => setD((x) => ({ ...x, targetSell: v }))} placeholder="optional" aria-label="Expected sale price" data-testid="trade-target-sell" />
             </Field>
           </div>
 
@@ -267,6 +271,14 @@ export function TradeEditor({ initial, open, onOpenChange, mode }: { initial: Tr
                 <div className="text-faint">Realised ROI</div>
                 <Pct value={summary.roi} />
               </div>
+              {d.targetSell != null && summary.openQty > 0 && (() => {
+                const est = estimateOpenSale(summary, d.targetSell);
+                return est ? (
+                  <div className="col-span-full" data-testid="trade-target-profit">
+                    Selling the {summary.openQty} open at {gp(d.targetSell)}: est. <span className={est.profit >= 0 ? "text-pos" : "text-neg"}>{est.profit >= 0 ? "profit" : "loss"} {gp(Math.abs(est.profit))} gp</span> after {gp(est.tax)} gp tax
+                  </div>
+                ) : null;
+              })()}
               {meta?.limit != null && summary.boughtQty > meta.limit && (
                 <div className="col-span-full text-warn">Note: total quantity exceeds the 4-hour buy limit ({meta.limit}) – fine if bought across several windows.</div>
               )}

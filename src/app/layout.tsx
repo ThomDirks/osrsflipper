@@ -17,7 +17,7 @@ export const viewport: Viewport = {
 };
 
 // Setzt das Theme vor dem ersten Rendern (verhindert Aufblitzen)
-const themeScript = `try{var t=localStorage.getItem("osrs-ge-flipper:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+const themeScript = `try{var t=localStorage.getItem("osrs-ge-flipper:theme");if(t==="light"||t==="dark"||t==="grey"||t==="grey-light")document.documentElement.dataset.theme=t}catch(e){}`;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

@@ -129,6 +129,16 @@ export default function MethodologyPage() {
         <li>Planned quantity = min(buy limit left, ⌊capital ÷ buy⌋, 25% of the output’s 24 h instant-buys converted to input potions), rounded down to a multiple that leaves no spare doses (e.g. 4 × (3) → 3 × (4)).</li>
       </ul>
 
+      <H>Price alerts on items you hold</H>
+      <ul>
+        <li>Checked on every market refresh (each minute, also when the tab is in the background) for every trade with open items. “Sell now” = last instant-buy − offset.</li>
+        <li><b>Expected sale price</b> (set when you log a buy, prefilled from the scanner, Top 10 or Decanting, editable in the trade): alert when sell now is ≥ x% above it (default 5%), when it reaches it, or when it is ≥ y% below it (default 5%).</li>
+        <li>Without an expected price: ≥ x% above break-even, or ≥ y% below what you paid.</li>
+        <li><b>Sudden move</b>: last instant-buy vs the average instant-buy of the last completed hour (24 h if missing), default ± 8%.</li>
+        <li><b>Loss warning</b>: selling all open items now would be below break-even after tax. Starts 15 minutes after your latest buy, so thin margins don’t ping the moment you buy.</li>
+        <li>Each alert shows in the bell menu and Flip History while the condition holds. It pings (toast, sound, optional desktop notification) once, then again at most once per cooldown (default 1 h).</li>
+      </ul>
+
       <H>Trades, FIFO & portfolio</H>
       <ul>
         <li>Sales are matched to the oldest open buys using <b>FIFO</b>; a buy’s fees are spread across its items. Overselling is rejected.</li>

@@ -29,13 +29,22 @@ test("1. Webseite öffnen & Hauptnavigation", async ({ page }) => {
   }
 });
 
-test("Design: hell ist Standard, Umschalter wechselt auf dunkel und bleibt gespeichert", async ({ page }) => {
+test("Design: hell ist Standard, Menü wechselt auf dunkel/grau und bleibt gespeichert", async ({ page }) => {
   await openApp(page);
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.getByTestId("theme-toggle").click();
+  await page.getByTestId("theme-option-dark").click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByTestId("theme-toggle").click();
+  await page.getByTestId("theme-option-grey").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "grey");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "grey");
+  await page.getByTestId("theme-toggle").click();
+  await page.getByTestId("theme-option-grey-light").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "grey-light");
 });
 
 test("2./3. Item suchen und Details aufrufen", async ({ page }) => {
@@ -450,4 +459,30 @@ test("Decanting: Route anklicken vergleicht beide Tränke und erfasst den Decant
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Flip History" }).click();
   await expect(page.getByTestId("trade-decant-badge")).toBeVisible();
   await expect(page.getByText("Prayer potion(4)").first()).toBeVisible();
+});
+
+test("Halte-Alarme: erwarteter Verkaufspreis beim Kauf, Alarm im Glockenmenü und in der Historie", async ({ page }) => {
+  await openApp(page, "/items/2434");
+  await page.getByTestId("item-new-trade").click();
+  const editor = page.getByTestId("trade-editor");
+  const target = editor.getByTestId("trade-target-sell");
+  // vorausgefüllt mit dem geschätzten Verkaufspreis
+  await expect(target).not.toHaveValue("");
+  // Erwartung deutlich unter dem aktuellen Preis → „über dem erwarteten Preis“
+  await target.fill("100000");
+  await expect(editor.getByTestId("trade-target-profit")).toContainText("Selling the");
+  await editor.getByRole("button", { name: /Save/ }).click();
+  await expect(editor).toBeHidden();
+
+  await expect(page.getByTestId("alerts-count")).toHaveText(/^[1-9]/);
+  await page.getByTestId("alerts-bell").click();
+  await expect(page.getByTestId("alert-item").filter({ hasText: "Prayer potion(4) is" })).toContainText("above your expected price");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Flip History" }).click();
+  await expect(page.getByTestId("trade-alert-badge").first()).toBeVisible();
+
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings" }).click();
+  await page.getByTestId("hold-test").click();
+  await expect(page.getByText("Test alert: Prayer potion(4) jumped")).toBeVisible();
 });

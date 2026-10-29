@@ -19,6 +19,8 @@ import { computeFifo, estimateOpenSale, investedInOpenFlips, recommendedSellPric
 import { cn } from "@/lib/utils";
 import type { Trade } from "@/lib/portfolio/schemas";
 import { dateTime, duration, gp, gpShort } from "@/lib/format";
+import { useHoldingSignals } from "@/components/layout/holding-alerts";
+import type { HoldingSignal } from "@/lib/analysis/holding-alerts";
 import { useDataStore } from "@/state/data";
 import { useFolderStore } from "@/state/folder";
 import { toast } from "@/state/toasts";
@@ -78,6 +80,12 @@ export default function HistoryPage() {
   const items = useItemMap();
   const [editing, setEditing] = useState<{ draft: Trade | ReturnType<typeof emptyTrade>; mode?: "buy" | "sell" } | null>(null);
   const marketRows = useRowMap();
+  const holdSignals = useHoldingSignals();
+  const alertsByTrade = useMemo(() => {
+    const m = new Map<string, HoldingSignal[]>();
+    for (const a of holdSignals) m.set(a.tradeId, [...(m.get(a.tradeId) ?? []), a]);
+    return m;
+  }, [holdSignals]);
   const settings = useSettings();
   /** Verkauf für einen offenen Trade: Menge = offene Stück, Preis = letzter Instant-Buy − Offset (Schätzung) */
   const startSale = (t: Trade) => {
@@ -252,6 +260,11 @@ export default function HistoryPage() {
                             <ItemIcon icon={meta?.icon} name={t.itemName} size={18} />
                             <span className="max-w-[180px] truncate">{t.itemName}</span>
                             {t.lots.some((l) => l.decantFrom) && <Badge tone="info" data-testid="trade-decant-badge">decant</Badge>}
+                            {alertsByTrade.get(t.id)?.map((a) => (
+                              <Badge key={a.key} tone={a.tone} title={`${a.title}. ${a.detail}`} data-testid="trade-alert-badge">
+                                {a.kind === "target" ? "target hit" : a.kind === "loss" ? "below break-even" : a.change != null ? `${a.change > 0 ? "+" : ""}${(a.change * 100).toFixed(0)}%` : a.kind}
+                              </Badge>
+                            ))}
                           </Link>
                         </td>
                         <td className="px-2 py-1.5"><Badge tone={STATUS_TONE[s.status]}>{STATUS_LABEL[s.status]}</Badge></td>
@@ -307,6 +320,7 @@ export default function HistoryPage() {
                                   </div>
                                 ))}
                                 {s.openLots.length > 0 && <div className="mt-1 text-faint">Open cost basis (FIFO): <Gp value={s.openCostBasis} /></div>}
+                                <div className="mt-1 text-faint">Expected sale price: {t.targetSell != null ? <span className="num text-text">{gp(t.targetSell)}</span> : "not set (edit the trade to add one)"}</div>
                               </div>
                               <div>
                                 <div className="mb-1 font-semibold text-muted">Sales (FIFO matching)</div>

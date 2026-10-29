@@ -13,7 +13,9 @@ import { gp } from "@/lib/format";
 import { useDataStore } from "@/state/data";
 import { useSettings, useSettingsStore } from "@/state/settings";
 import { FolderSettingsCard } from "@/components/layout/folder-settings";
+import { HoldingAlertSettingsCard } from "@/components/layout/holding-alert-settings";
 import { toast } from "@/state/toasts";
+import { THEMES } from "@/lib/ui/themes";
 
 export default function SettingsPage() {
   const s = useSettings();
@@ -60,8 +62,7 @@ export default function SettingsPage() {
           <CardBody className="grid grid-cols-2 gap-3">
             <Field label="Theme">
               <Select value={s.theme} onChange={(e) => update({ theme: e.target.value as Settings["theme"] })} aria-label="Theme" data-testid="theme-select">
-                <option value="light">Light (parchment)</option>
-                <option value="dark">Dark (wood)</option>
+                {THEMES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
               </Select>
             </Field>
             <Field label="Default capital (gp)">
@@ -77,6 +78,8 @@ export default function SettingsPage() {
             </Field>
           </CardBody>
         </Card>
+
+        <HoldingAlertSettingsCard />
 
         <Card>
           <CardHeader title="Back up & restore data" />

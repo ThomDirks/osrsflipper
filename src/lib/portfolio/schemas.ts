@@ -49,6 +49,8 @@ export const TradeSchema = z.object({
   offers: z.array(OfferSchema).max(100).default([]),
   notes: z.string().max(2000).default(""),
   history: z.array(HistoryEntrySchema).max(500).default([]),
+  /** Erwarteter Verkaufspreis je Stück (beim Kauf festgelegt, änderbar); Basis für Halte-Alarme */
+  targetSell: price.nullable().optional(),
 });
 export type Trade = z.infer<typeof TradeSchema>;
 

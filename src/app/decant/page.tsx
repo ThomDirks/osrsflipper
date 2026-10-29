@@ -91,6 +91,7 @@ function DecantCalculator({ families, state, setState, nowSec, onLog }: { famili
                 const draft = emptyTrade(to.id, to.name) as Draft;
                 const lot = decantLot({ fromId: from.id, fromName: from.name, inputQty: res.inputQty, buyPrice: state.buy!, outputQty: res.outputQty });
                 draft.lots = [{ id: newId(), date: Date.now(), ...lot }];
+                draft.targetSell = state.sell;
                 draft.notes = `Decant: ${gp(res.inputQty)} × ${from.name} @ ${gp(state.buy)} into ${gp(res.outputQty)} × ${to.name}${res.leftoverDose ? ` (+1 spare (${res.leftoverDose}))` : ""}`;
                 onLog(draft);
               }}

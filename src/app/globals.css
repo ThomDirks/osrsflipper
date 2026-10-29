@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, [data-theme="grey"], [data-theme="grey"] *));
 
 /*
- * Hell = Pergament-Braun wie im OSRS Wiki, Dunkel = warmes Holz/Leder wie das Spiel-Interface.
- * Standard ist Hell.
+ * Hell = Pergament-Braun wie im OSRS Wiki, Dunkel = warmes Holz/Leder wie das Spiel-Interface,
+ * Grau / Grau hell = neutrale Töne mit Ton-Akzent (wie die Claude-Oberfläche). Standard ist Hell.
  */
 :root,
 [data-theme="light"] {
@@ -65,6 +65,66 @@
   --shadow: 0 1px 0 rgba(255, 230, 190, 0.05) inset, 0 2px 8px rgba(0, 0, 0, 0.35);
   --header-bg: rgba(29, 23, 18, 0.88);
   color-scheme: dark;
+}
+
+[data-theme="grey"] {
+  --bg: #262624;
+  --surface: #30302e;
+  --surface-2: #383835;
+  --surface-3: #42413d;
+  --border: #464541;
+  --border-strong: #5f5e58;
+  --text: #f5f4ef;
+  --muted: #b9b6ab;
+  --faint: #86847b;
+  --pos: #7cc489;
+  --pos-soft: rgba(124, 196, 137, 0.14);
+  --neg: #f0806f;
+  --neg-soft: rgba(240, 128, 111, 0.14);
+  --warn: #e6b45a;
+  --warn-soft: rgba(230, 180, 90, 0.14);
+  --accent: #d97757;
+  --accent-fg: #1f1e1d;
+  --accent-soft: rgba(217, 119, 87, 0.16);
+  --gold: #e0ad4f;
+  --info: #8db4e6;
+  --info-soft: rgba(141, 180, 230, 0.14);
+  --violet: #b8a3e6;
+  --violet-soft: rgba(184, 163, 230, 0.14);
+  --chart-grid: #353532;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 2px 8px rgba(0, 0, 0, 0.3);
+  --header-bg: rgba(38, 38, 36, 0.88);
+  color-scheme: dark;
+}
+
+[data-theme="grey-light"] {
+  --bg: #f0eee6;
+  --surface: #faf9f5;
+  --surface-2: #f3f1ea;
+  --surface-3: #e8e5dc;
+  --border: #dedbd0;
+  --border-strong: #bfbcb0;
+  --text: #1f1e1d;
+  --muted: #5f5d57;
+  --faint: #8b8980;
+  --pos: #2f7d4a;
+  --pos-soft: rgba(47, 125, 74, 0.12);
+  --neg: #b3402f;
+  --neg-soft: rgba(179, 64, 47, 0.1);
+  --warn: #96620a;
+  --warn-soft: rgba(196, 140, 30, 0.14);
+  --accent: #c2603f;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(194, 96, 63, 0.12);
+  --gold: #d9a23a;
+  --info: #2f6aa0;
+  --info-soft: rgba(47, 106, 160, 0.1);
+  --violet: #6f52a8;
+  --violet-soft: rgba(111, 82, 168, 0.1);
+  --chart-grid: #e8e6df;
+  --shadow: 0 1px 2px rgba(31, 30, 29, 0.06), 0 1px 3px rgba(31, 30, 29, 0.04);
+  --header-bg: rgba(240, 238, 230, 0.88);
+  color-scheme: light;
 }
 
 @theme inline {

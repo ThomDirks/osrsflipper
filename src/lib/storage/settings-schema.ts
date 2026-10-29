@@ -34,7 +34,7 @@ export type PositionRules = z.infer<typeof PositionRulesSchema>;
 
 export const SettingsSchema = z.object({
   version: z.literal(1).default(1),
-  theme: z.enum(["dark", "light"]).default("light"),
+  theme: z.enum(["dark", "light", "grey", "grey-light"]).default("light"),
   defaultCapital: z.number().nonnegative().max(1e13).default(10_000_000),
   /** Über-/Unterbieten in gp gegenüber dem letzten beobachteten Preis */
   priceOffset: z.number().int().min(0).max(1_000_000).default(1),
@@ -90,6 +90,23 @@ export const SettingsSchema = z.object({
     })
     .default({ minVolume24h: 500, minCoverage: 10, capitalPerFlip: null, sort: "reward", hideHeld: false, flags: [] }),
   notificationsEnabled: z.boolean().default(false),
+  /** Halte-Alarme: Preisbewegungen bei Items, die man noch offen hält */
+  holdingAlerts: z
+    .object({
+      enabled: z.boolean().default(true),
+      /** Anstieg über den erwarteten Verkaufspreis (bzw. Break-even ohne Ziel) */
+      upPct: z.number().min(0.005).max(5).default(0.05),
+      /** Fall unter den erwarteten Verkaufspreis (bzw. Einstand ohne Ziel) */
+      downPct: z.number().min(0.005).max(5).default(0.05),
+      /** Plötzliche Bewegung: letzter Preis gegenüber dem Durchschnitt der letzten Stunde */
+      suddenPct: z.number().min(0.005).max(5).default(0.08),
+      /** Warnen, sobald ein Verkauf zum aktuellen Preis Verlust bringen würde */
+      lossWarning: z.boolean().default(true),
+      sound: z.boolean().default(true),
+      /** Gleicher Alarm für denselben Trade frühestens nach so vielen Minuten erneut */
+      cooldownMinutes: z.number().int().min(5).max(1440).default(60),
+    })
+    .default({ enabled: true, upPct: 0.05, downPct: 0.05, suddenPct: 0.08, lossWarning: true, sound: true, cooldownMinutes: 60 }),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

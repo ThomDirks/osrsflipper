@@ -45,7 +45,7 @@ function PickCard({ p, rank }: { p: TopPick; rank: number }) {
     setBusy(true);
     const now = Date.now();
     const res = await saveTrade(
-      { id: newId(), itemId: c.id, itemName: c.name, createdAt: now, updatedAt: now, lots: [], sales: [], offers: [{ id: newId(), date: now, quantity: p.qty, price: c.estBuy }], notes: p.flag ? `From Top 10 Buys (volatile: ${HISTORY_FLAG_LABEL[p.flag]})` : "From Top 10 Buys", history: [] },
+      { id: newId(), itemId: c.id, itemName: c.name, createdAt: now, updatedAt: now, lots: [], sales: [], offers: [{ id: newId(), date: now, quantity: p.qty, price: c.estBuy }], notes: p.flag ? `From Top 10 Buys (volatile: ${HISTORY_FLAG_LABEL[p.flag]})` : "From Top 10 Buys", history: [], targetSell: c.estSell ?? null },
       "created",
       `Buy offer ${p.qty} × ${c.estBuy} gp from Top 10`,
     );
