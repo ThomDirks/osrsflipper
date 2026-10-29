@@ -1,6 +1,7 @@
 import type { MarketRow } from "../market/types";
 import type { Trade } from "../portfolio/schemas";
 import { computeFifo } from "../portfolio/fifo";
+import type { Category } from "./category";
 import type { FlipCandidate } from "./scanner";
 
 /**
@@ -36,6 +37,12 @@ export interface SpeedRow {
   tier: SpeedTier;
   netMargin: number | null;
   profit: number | null;
+  roi: number | null;
+  /** Estimated buy price each */
+  price: number | null;
+  category: Category;
+  members: boolean;
+  taxExempt: boolean;
   /** Your own closed sales for this item */
   ownSales: number;
   ownAvgHoldMs: number | null;
@@ -103,6 +110,11 @@ export function buildSpeedRows(candidates: FlipCandidate[], rows: ReadonlyMap<nu
       tier: speedTier(cycleMin),
       netMargin: c.netMargin,
       profit: c.netMargin != null ? c.netMargin * qty : null,
+      roi: c.roi,
+      price: c.estBuy,
+      category: c.category,
+      members: c.members,
+      taxExempt: c.taxExempt,
       ownSales: o?.sales ?? 0,
       ownAvgHoldMs: o?.avgHoldMs ?? null,
     });

@@ -24,3 +24,11 @@ export const NAV = [
 ] as const;
 
 export const MOBILE_TABS = ["/", "/top", "/scanner", "/history", "/calculator"] as const;
+
+/** Sidebar groups (hrefs from NAV). Items without a group render on their own. */
+export const NAV_GROUPS = [
+  { key: "find", label: "Find flips", hrefs: ["/top", "/scanner", "/speed", "/decant"] },
+  { key: "mine", label: "My trades", hrefs: ["/history", "/portfolio", "/watchlist"] },
+  { key: "tools", label: "Tools", hrefs: ["/calculator", "/settings"] },
+] as const;
+export type NavGroupKey = (typeof NAV_GROUPS)[number]["key"];

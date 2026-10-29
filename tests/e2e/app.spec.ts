@@ -424,8 +424,47 @@ test("Flip Speed: Buys vs sells mit Füllzeiten und Mengenbasis", async ({ page 
   await expect(first).toContainText(/sells/);
   await page.getByTestId("speed-basis").selectOption("capital");
   await expect(page.getByTestId("speed-row").first()).toBeVisible();
+  await page.getByTestId("speed-more").click();
   await page.getByTestId("speed-mine").check();
   await expect(page.getByTestId("speed-row")).toHaveCount(0);
+  await expect(page.getByTestId("speed-reset")).toContainText("Reset");
+  await page.getByTestId("speed-reset").click();
+  await expect(page.getByTestId("speed-row").first()).toBeVisible();
+});
+
+test("Flip Speed: Filter nach Kategorie, Geschwindigkeit und Preis, bleiben gespeichert", async ({ page }) => {
+  await openApp(page, "/speed");
+  const rows = page.getByTestId("speed-row");
+  await expect(rows.first()).toBeVisible();
+  const total = await rows.count();
+  await page.getByTestId("speed-cat-Potions").click();
+  await expect(rows.first()).toBeVisible();
+  for (const t of await rows.allTextContents()) expect(t).toContain("Potions");
+  expect(await rows.count()).toBeLessThan(total);
+  await page.getByTestId("speed-tier-very-fast").click();
+  for (const t of await rows.allTextContents()) expect(t).toContain("very fast");
+  await page.getByTestId("speed-more").click();
+  await page.getByTestId("speed-max-price").fill("1");
+  await expect(rows).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId("speed-cat-Potions")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("speed-reset")).toContainText("3 filters");
+});
+
+test("Seitenleiste: Gruppen auf- und zuklappen, Symbole bleiben anklickbar", async ({ page }) => {
+  await openApp(page, "/");
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  // „Meine Trades“ ist zu: nur Symbole, aber trotzdem ein Link „Flip History“
+  await expect(page.getByTestId("nav-toggle-mine")).toHaveAttribute("aria-expanded", "false");
+  await nav.getByRole("link", { name: "Flip History" }).click();
+  await expect(page).toHaveURL(/\/history$/);
+  // Gruppe der aktuellen Seite ist offen
+  await expect(page.getByTestId("nav-toggle-mine")).toHaveAttribute("aria-expanded", "true");
+  await page.getByTestId("nav-toggle-find").click();
+  await expect(page.getByTestId("nav-toggle-find")).toHaveAttribute("aria-expanded", "true");
+  await expect(nav.getByRole("link", { name: "Decanting" })).toContainText("Decanting");
+  await page.reload();
+  await expect(page.getByTestId("nav-toggle-find")).toHaveAttribute("aria-expanded", "true");
 });
 
 test("Item-Detail: technische Indikatoren und Buys vs sells", async ({ page }) => {

@@ -1,15 +1,15 @@
 "use client";
 import * as Popover from "@radix-ui/react-popover";
-import { Check, Menu, Palette, X } from "lucide-react";
+import { Check, ChevronRight, Menu, Palette, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useSettings, useSettingsStore } from "@/state/settings";
 import { THEMES } from "@/lib/ui/themes";
-import { HoldingAlertsBell, HoldingAlertsWatcher } from "./holding-alerts";
+import { HoldingAlertsBell, HoldingAlertsWatcher, useHoldingSignals } from "./holding-alerts";
 import { DataStatus, FixtureBanner, StaleBanner } from "./data-status";
-import { MOBILE_TABS, NAV, NAV_TONES } from "./nav";
+import { MOBILE_TABS, NAV, NAV_GROUPS, NAV_TONES, type NavGroupKey } from "./nav";
 import { SearchCommand } from "./search-command";
 import { FolderStatusChip } from "./folder-sync";
 
@@ -29,26 +29,120 @@ function Logo() {
   );
 }
 
+const NAV_OPEN_KEY = "osrs-ge-flipper:nav-groups";
+
+const navListeners = new Set<() => void>();
+function subscribeNav(cb: () => void) {
+  navListeners.add(cb);
+  return () => navListeners.delete(cb);
+}
+function readNavRaw(): string {
+  try {
+    return localStorage.getItem(NAV_OPEN_KEY) ?? "{}";
+  } catch {
+    return "{}";
+  }
+}
+let navMemory = "{}";
+function writeNav(next: Partial<Record<NavGroupKey, boolean>>) {
+  navMemory = JSON.stringify(next);
+  try {
+    localStorage.setItem(NAV_OPEN_KEY, navMemory);
+  } catch {
+    /* storage blocked: state lasts for this visit */
+  }
+  navListeners.forEach((l) => l());
+}
+function parseNav(raw: string): Partial<Record<NavGroupKey, boolean>> {
+  try {
+    const v = JSON.parse(raw) as unknown;
+    return v && typeof v === "object" ? (v as Partial<Record<NavGroupKey, boolean>>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function NavLink({ href, onNavigate, pathname }: { href: string; onNavigate?: () => void; pathname: string }) {
+  const item = NAV.find((n) => n.href === href);
+  if (!item) return null;
+  const Icon = item.icon;
+  const active = isActive(pathname, href);
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className={cn(
+        "flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text",
+        active && "bg-surface-2 font-bold text-text shadow-card",
+      )}
+      aria-current={active ? "page" : undefined}
+    >
+      <span className={cn("flex size-7 items-center justify-center rounded-lg", NAV_TONES[item.tone])}>
+        <Icon className="size-4" />
+      </span>
+      {item.label}
+    </Link>
+  );
+}
+
 function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  // Remembered open/closed state is per browser; the server render uses the defaults
+  const raw = useSyncExternalStore(subscribeNav, () => (navMemory !== "{}" ? navMemory : readNavRaw()), () => "{}");
+  const open = useMemo(() => parseNav(raw), [raw]);
+  const alertCount = useHoldingSignals().length;
+  const grouped = new Set<string>(NAV_GROUPS.flatMap((g) => [...g.hrefs]));
+  const toggle = (key: NavGroupKey, value: boolean) => writeNav({ ...open, [key]: value });
+
   return (
     <nav className="flex flex-col gap-1" aria-label="Main navigation">
-      {NAV.map(({ href, label, icon: Icon, tone }) => (
-        <Link
-          key={href}
-          href={href}
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text",
-            isActive(pathname, href) && "bg-surface-2 font-bold text-text shadow-card",
-          )}
-          aria-current={isActive(pathname, href) ? "page" : undefined}
-        >
-          <span className={cn("flex size-7 items-center justify-center rounded-lg", NAV_TONES[tone])}>
-            <Icon className="size-4" />
-          </span>
-          {label}
-        </Link>
+      {NAV.filter((n) => !grouped.has(n.href)).map((n) => (
+        <NavLink key={n.href} href={n.href} pathname={pathname} onNavigate={onNavigate} />
       ))}
+      {NAV_GROUPS.map((g) => {
+        const hasActive = g.hrefs.some((h) => isActive(pathname, h));
+        const isOpen = hasActive || (open[g.key] ?? false);
+        return (
+          <div key={g.key} className="mt-2" data-testid={`nav-group-${g.key}`}>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => !hasActive && toggle(g.key, !isOpen)}
+                aria-expanded={isOpen}
+                disabled={hasActive}
+                className={cn("flex flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-faint", !hasActive && "hover:text-text")}
+                title={hasActive ? "Contains the page you’re on" : isOpen ? "Collapse" : "Expand"}
+                data-testid={`nav-toggle-${g.key}`}
+              >
+                <ChevronRight className={cn("size-3.5 transition-transform", isOpen && "rotate-90", hasActive && "opacity-0")} />
+                {g.label}
+                {g.key === "mine" && alertCount > 0 && (
+                  <span className="ml-1 rounded-full bg-neg px-1.5 text-[10px] leading-4 text-white" title={`${alertCount} price alerts`}>{alertCount}</span>
+                )}
+              </button>
+              {!isOpen && (
+                <div className="flex gap-0.5">
+                  {g.hrefs.map((h) => {
+                    const item = NAV.find((n) => n.href === h)!;
+                    const Icon = item.icon;
+                    return (
+                      <Link key={h} href={h} onClick={onNavigate} aria-label={item.label} title={item.label} className={cn("flex size-7 items-center justify-center rounded-lg opacity-80 hover:opacity-100", NAV_TONES[item.tone])}>
+                        <Icon className="size-4" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            {isOpen && (
+              <div className="mt-0.5 flex flex-col gap-1">
+                {g.hrefs.map((h) => (
+                  <NavLink key={h} href={h} pathname={pathname} onNavigate={onNavigate} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </nav>
   );
 }
