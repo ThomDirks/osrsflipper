@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export function GET() {
   return NextResponse.json(
-    { ok: true, source: getMarketService().sourceKind, time: Date.now() },
+    { ok: true, source: getMarketService().sourceKind, time: Date.now(), build: process.env.APP_BUILD ?? null },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
