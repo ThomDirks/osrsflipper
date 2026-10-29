@@ -385,3 +385,48 @@ test("30-Tage-Abgleich: Grundlinie geladen, Preisspitze markiert, Top 10 zeigt 3
   await expect(page.getByTestId("vol-flag-erratic")).toHaveAttribute("aria-pressed", "true");
   await expect(coal).toBeVisible();
 });
+
+test("Decanting: Route (2)→(4) mit Gewinn, Rechner übernimmt die Route", async ({ page }) => {
+  await openApp(page, "/decant");
+  const rows = page.getByTestId("decant-row");
+  await expect(rows.filter({ hasText: "Prayer potion" })).toHaveCount(1);
+  await expect(rows.filter({ hasText: "Super combat potion" })).toHaveCount(1);
+  // Alle Kombinationen anzeigen
+  await page.getByTestId("decant-best-only").uncheck();
+  expect(await rows.count()).toBeGreaterThan(2);
+  await page.getByTestId("decant-best-only").check();
+  await rows.filter({ hasText: "Prayer potion" }).getByTestId("decant-open-calc").click();
+  await expect(page.getByTestId("decant-family")).toHaveValue("Prayer potion");
+  const result = page.getByTestId("decant-result");
+  await expect(result).toContainText("You get");
+  // Eigene Menge: 3 × (2) → 1 × (4) + eine (2) übrig
+  await page.getByTestId("decant-from").selectOption("2");
+  await page.getByTestId("decant-to").selectOption("4");
+  await page.getByTestId("decant-qty").fill("3");
+  await expect(result).toContainText("1 × (4)");
+  await expect(result).toContainText("spare (2) potion");
+});
+
+test("Flip Speed: Buys vs sells mit Füllzeiten und Mengenbasis", async ({ page }) => {
+  await openApp(page, "/speed");
+  const first = page.getByTestId("speed-row").first();
+  await expect(first).toBeVisible();
+  await expect(first).toContainText(/buys/);
+  await expect(first).toContainText(/sells/);
+  await page.getByTestId("speed-basis").selectOption("capital");
+  await expect(page.getByTestId("speed-row").first()).toBeVisible();
+  await page.getByTestId("speed-mine").check();
+  await expect(page.getByTestId("speed-row")).toHaveCount(0);
+});
+
+test("Item-Detail: technische Indikatoren und Buys vs sells", async ({ page }) => {
+  await openApp(page, "/items/2434");
+  await page.getByTestId("lookback-7d").click();
+  await expect(page.getByTestId("technical")).toContainText("RSI 14");
+  await expect(page.getByTestId("tech-rsi")).toHaveText(/^\d{1,3}(\.\d)?$/);
+  await page.getByTestId("osc-macd").click();
+  await expect(page.getByTestId("osc-macd")).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("overlay-bb").click();
+  await expect(page.getByTestId("overlay-bb")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("item-speed")).toContainText("Buy fills in");
+});

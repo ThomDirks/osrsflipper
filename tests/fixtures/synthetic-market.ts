@@ -23,6 +23,17 @@ export const FIXTURE_CASES = {
   erratic: 453, // Tagespreise der letzten 30 Tage schwanken um ±30 %, aktuell normal (Tab „Volatile“)
 } as const;
 
+/** Dosen-Varianten: Preis pro Dosis sinkt mit der Dosis, damit sich Decanting (2)→(4) lohnt */
+const DOSE_OF: Record<number, { four: number; dose: number }> = {
+  139: { four: 2434, dose: 3 },
+  141: { four: 2434, dose: 2 },
+  143: { four: 2434, dose: 1 },
+  12697: { four: 12695, dose: 3 },
+  12699: { four: 12695, dose: 2 },
+  12701: { four: 12695, dose: 1 },
+};
+const DOSE_FACTOR: Record<number, number> = { 3: 0.95, 2: 0.88, 1: 0.84 };
+
 function rng(seed: number) {
   let s = seed >>> 0 || 1;
   return () => {
@@ -33,6 +44,8 @@ function rng(seed: number) {
 
 /** Synthetischer Basispreis je Item (deterministisch, ohne Bezug zu echten Preisen) */
 export function basePrice(id: number): number {
+  const d = DOSE_OF[id];
+  if (d) return Math.round((basePrice(d.four) / 4) * d.dose * (DOSE_FACTOR[d.dose] ?? 1));
   if (id === FIXTURE_CASES.aboveCap) return 300_000_000;
   if (id === FIXTURE_CASES.taxExempt) return 9_000_000;
   const r = rng(id * 7919)();

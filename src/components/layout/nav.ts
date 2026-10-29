@@ -1,4 +1,4 @@
-import { Calculator, Eye, History, LayoutDashboard, Radar, Settings, Trophy, Wallet } from "lucide-react";
+import { Calculator, Eye, FlaskConical, Gauge, History, LayoutDashboard, Radar, Settings, Trophy, Wallet } from "lucide-react";
 
 /** Farbton des Icon-Chips (Klassen müssen statisch sein, damit Tailwind sie findet) */
 export const NAV_TONES = {
@@ -14,6 +14,8 @@ export const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, tone: "gold" },
   { href: "/top", label: "Top 10 Buys", icon: Trophy, tone: "gold" },
   { href: "/scanner", label: "Flip Scanner", icon: Radar, tone: "blue" },
+  { href: "/speed", label: "Flip Speed", icon: Gauge, tone: "blue" },
+  { href: "/decant", label: "Decanting", icon: FlaskConical, tone: "violet" },
   { href: "/calculator", label: "Profit Calculator", icon: Calculator, tone: "green" },
   { href: "/history", label: "Flip History", icon: History, tone: "violet" },
   { href: "/portfolio", label: "My Portfolio", icon: Wallet, tone: "green" },

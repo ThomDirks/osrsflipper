@@ -101,6 +101,34 @@ export default function MethodologyPage() {
         <li>With fewer than 10 points with trades, stats are considered unreliable. Gaps are never interpolated.</li>
       </ul>
 
+      <H>Technical indicators (item page)</H>
+      <ul>
+        <li>Calculated on the chart’s time range from the mid price per step. Periods count <b>steps</b> (5 min on 6 h/24 h, 1 h on 7 d, 6 h on 30 d, 1 day on 6 m/1 y), not days. Steps without trades are skipped.</li>
+        <li><b>SMA n</b> = mean of the last n prices. <b>EMA n</b> = exponential average with weight 2 ÷ (n + 1), started from the SMA.</li>
+        <li><b>RSI 14</b> with Wilder smoothing: 100 − 100 ÷ (1 + avg gain ÷ avg loss). Above 70 reads as overbought, below 30 as oversold.</li>
+        <li><b>MACD 12/26/9</b> = EMA 12 − EMA 26, signal = EMA 9 of the MACD, histogram = MACD − signal.</li>
+        <li><b>Bollinger 20/2</b> = SMA 20 ± 2 standard deviations. %B = position between the bands, width = band distance ÷ SMA.</li>
+        <li><b>Stochastic 14/3</b>: %K = (price − lowest low) ÷ (highest high − lowest low) over 14 steps, using avg instant-sell as low and avg instant-buy as high; %D = SMA 3 of %K.</li>
+        <li><b>On-balance volume</b>: volume added on up-steps and subtracted on down-steps, shown as a share of total volume.</li>
+        <li>These describe past prices. The short text next to each value is a plain reading, not a buy or sell signal.</li>
+      </ul>
+
+      <H>Flip speed (buys vs sells)</H>
+      <ul>
+        <li><b>Instant-buys</b> (other players buying) fill your sell offers; <b>instant-sells</b> (other players selling) fill your buy offers. The split bar shows both for the last hour and 24 h.</li>
+        <li>Buy fills in = your quantity ÷ (24 h instant-sells ÷ 24), in minutes; sell fills in uses instant-buys. Quantity = one full buy limit by default, or what your capital buys (limit left) when you switch it.</li>
+        <li>This assumes you get the whole market flow, so it’s a best case for comparing items. Speed tiers use the sum of both sides: very fast ≤ 30 min, fast ≤ 2 h, medium ≤ 8 h, slow ≤ 24 h, otherwise very slow.</li>
+        <li>Your hold = average time between buy and sale from your own trades (FIFO, weighted by quantity).</li>
+      </ul>
+
+      <H>Decanting</H>
+      <ul>
+        <li>Potions with dose variants (1)–(4) are grouped by name. Charged jewellery, waterskins and barbarian mixes are left out. Decanting at Bob Barter (GE) or Zahur (Prifddinas) is free.</li>
+        <li>Buy = last instant-sell + offset of the input dose; sell = last instant-buy − offset of the output dose, minus GE tax per output potion.</li>
+        <li>Profit per dose = net sell ÷ output dose − buy ÷ input dose. Output potions = ⌊input potions × input dose ÷ output dose⌋.</li>
+        <li>Planned quantity = min(buy limit left, ⌊capital ÷ buy⌋, 25% of the output’s 24 h instant-buys converted to input potions), rounded down to a multiple that leaves no spare doses (e.g. 4 × (3) → 3 × (4)).</li>
+      </ul>
+
       <H>Trades, FIFO & portfolio</H>
       <ul>
         <li>Sales are matched to the oldest open buys using <b>FIFO</b>; a buy’s fees are spread across its items. Overselling is rejected.</li>

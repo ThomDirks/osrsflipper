@@ -3,7 +3,9 @@ import { ExternalLink, Plus } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { TimeChart, type ChartSeries } from "@/components/charts/time-chart";
+import { PriceChart, TechnicalSummary } from "@/components/items/technical";
+import { minutes, SplitBar, TIER_TONE } from "@/components/common/split-bar";
+import { fillMinutes, ownHoldTimes, speedTier } from "@/lib/analysis/speed";
 import { Age, EmptyState, ErrorNote, Est, Gp, InfoNote, Pct, QualityBadge, RiskBadge, Skeleton, Stat } from "@/components/common/indicators";
 import { HistorySummary } from "@/components/common/history-check";
 import { historyReasons } from "@/lib/analysis/scanner";
@@ -23,7 +25,6 @@ import { useCandidates, useItems, useMarket, useTimeseries } from "@/hooks/marke
 import { useNow } from "@/hooks/use-now";
 import { computeIndicators, MIN_POINTS } from "@/lib/analysis/indicators";
 import { blockAvgPrice } from "@/lib/market/aggregate";
-import { pointPrice } from "@/lib/analysis/indicators";
 import { LOOKBACKS, type Lookback } from "@/lib/market/types";
 import { computeFifo } from "@/lib/portfolio/fifo";
 import type { Trade } from "@/lib/portfolio/schemas";
@@ -62,24 +63,7 @@ export default function ItemDetailPage() {
 
   const points = useMemo(() => ts.data?.points ?? [], [ts.data]);
   const ind = useMemo(() => computeIndicators(points), [points]);
-  const series = useMemo<ChartSeries[]>(() => {
-    if (!points.length) return [];
-    const both = points.filter((p) => p.avgHighPrice != null && p.avgLowPrice != null).length;
-    const out: ChartSeries[] = [];
-    if (both >= Math.min(5, points.length / 4)) {
-      out.push({ name: "Avg instant-buy", type: "line", color: "#d9822b", data: points.map((p) => ({ time: p.timestamp, value: p.avgHighPrice })) });
-      out.push({ name: "Avg instant-sell", type: "line", color: "#3b82c4", data: points.map((p) => ({ time: p.timestamp, value: p.avgLowPrice })) });
-    } else {
-      out.push({
-        name: "Avg price",
-        type: "line",
-        color: "#d9822b",
-        data: points.map((p) => ({ time: p.timestamp, value: pointPrice(p) })),
-      });
-    }
-    out.push({ name: "Volume", type: "histogram", color: "#9a8566", pane: 1, data: points.map((p) => ({ time: p.timestamp, value: p.highPriceVolume + p.lowPriceVolume })) });
-    return out;
-  }, [points]);
+  const own = useMemo(() => ownHoldTimes(myTrades).get(id), [myTrades, id]);
 
   if (!valid) return <ErrorNote>Invalid item ID.</ErrorNote>;
   if (items.isLoading) return <Skeleton className="h-40" />;
@@ -197,11 +181,11 @@ export default function ItemDetailPage() {
             <ErrorNote>Historical data unavailable: {ts.error.message}</ErrorNote>
           ) : ts.isLoading ? (
             <Skeleton className="h-[320px]" />
-          ) : series.length === 0 ? (
+          ) : points.length === 0 ? (
             <EmptyState title="No historical data in this time range" />
           ) : (
             <>
-              <TimeChart series={series} height={340} />
+              <PriceChart points={points} />
               <p className="mt-1 text-[11px] text-faint">Scroll/pinch = zoom, drag = pan. {ts.data?.meta.stale ? "⚠ Cached data." : ""} Fetched {dateTime(ts.data?.meta.fetchedAt)}.</p>
             </>
           )}
@@ -228,20 +212,59 @@ export default function ItemDetailPage() {
           </CardBody>
         </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader title="Profit Calculator" description={<>Pre-filled with estimated prices<Est /> from the latest observation</>} />
+        <Card>
+          <CardHeader title={`Technical indicators (${LOOKBACK_LABEL[lookback]})`} description="Moving averages, RSI, MACD, Bollinger and stochastic on the chart range" />
           <CardBody>
-            <ProfitCalculator
-              key={`${meta.id}-${cand ? "ready" : "loading"}`}
-              itemId={meta.id}
-              marketPrices={cand ? { buy: cand.estBuy, sell: cand.estSell } : undefined}
-              buyLimit={meta.limit}
-              prefill={{ buy: cand?.estBuy ?? null, sell: cand?.estSell ?? null, qty: cand && cand.qty > 0 ? cand.qty : (meta.limit ?? 1) }}
-              defaultCapital={settings.defaultCapital}
-            />
+            <TechnicalSummary points={points} />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader title="Buys vs sells" description="Instant-buys fill your sell offer, instant-sells fill your buy offer" />
+          <CardBody className="space-y-3 text-sm" data-testid="item-speed">
+            {(() => {
+              const qty = cand && cand.qty > 0 ? cand.qty : (meta.limit ?? 1);
+              const buy = fillMinutes(qty, row?.d1?.volLow ?? 0);
+              const sell = fillMinutes(qty, row?.d1?.volHigh ?? 0);
+              const tier = speedTier(buy != null && sell != null ? buy + sell : null);
+              return (
+                <>
+                  <div>
+                    <div className="mb-1 text-[11px] uppercase tracking-wide text-muted">Last 24 h</div>
+                    <SplitBar buys={row?.d1?.volHigh ?? 0} sells={row?.d1?.volLow ?? 0} />
+                  </div>
+                  <div>
+                    <div className="mb-1 text-[11px] uppercase tracking-wide text-muted">Last hour</div>
+                    <SplitBar buys={row?.h1?.volHigh ?? 0} sells={row?.h1?.volLow ?? 0} />
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                    <dt className="text-muted">Quantity</dt><dd className="num text-right">{gp(qty)}</dd>
+                    <dt className="text-muted">Buy fills in*</dt><dd className="num text-right">{minutes(buy)}</dd>
+                    <dt className="text-muted">Sell fills in*</dt><dd className="num text-right">{minutes(sell)}</dd>
+                    <dt className="text-muted">Speed</dt><dd className="text-right"><Badge tone={TIER_TONE[tier]}>{tier}</Badge></dd>
+                    <dt className="text-muted">Your avg hold</dt><dd className="num text-right">{own ? `${duration(own.avgHoldMs)} · ${own.sales} sale${own.sales === 1 ? "" : "s"}` : "–"}</dd>
+                  </dl>
+                  <p className="text-[11px] text-faint">* Time the whole market needs to trade your quantity at the 24 h rate. You share it with other flippers. <Link href="/speed" className="underline">Compare items</Link></p>
+                </>
+              );
+            })()}
           </CardBody>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader title="Profit Calculator" description={<>Pre-filled with estimated prices<Est /> from the latest observation</>} />
+        <CardBody>
+          <ProfitCalculator
+            key={`${meta.id}-${cand ? "ready" : "loading"}`}
+            itemId={meta.id}
+            marketPrices={cand ? { buy: cand.estBuy, sell: cand.estSell } : undefined}
+            buyLimit={meta.limit}
+            prefill={{ buy: cand?.estBuy ?? null, sell: cand?.estSell ?? null, qty: cand && cand.qty > 0 ? cand.qty : (meta.limit ?? 1) }}
+            defaultCapital={settings.defaultCapital}
+          />
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader title="My trades with this item" />
