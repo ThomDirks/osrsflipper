@@ -30,32 +30,34 @@ export interface LimitUsage {
 /** Aktive Limit-Nutzung pro Item (nur Items mit aktivem Fenster oder offenen Angeboten). */
 export function buyLimitUsage(trades: Trade[], now: number): Map<number, LimitUsage> {
   const lotsByItem = new Map<number, { date: number; quantity: number }[]>();
+  const names = new Map<number, string>();
   const out = new Map<number, LimitUsage>();
-  const entry = (t: Trade) => {
-    let u = out.get(t.itemId);
+  const entry = (itemId: number) => {
+    let u = out.get(itemId);
     if (!u) {
-      u = { itemId: t.itemId, itemName: t.itemName, bought: 0, pending: 0, windowStart: null, resetsAt: null };
-      out.set(t.itemId, u);
+      u = { itemId, itemName: names.get(itemId) ?? `#${itemId}`, bought: 0, pending: 0, windowStart: null, resetsAt: null };
+      out.set(itemId, u);
     }
     return u;
   };
 
   for (const t of trades) {
+    if (!names.has(t.itemId)) names.set(t.itemId, t.itemName);
     for (const l of t.lots) {
       // Zukünftige Daten (Tippfehler) zählen erst, wenn sie erreicht sind
       if (l.date > now) continue;
-      const list = lotsByItem.get(t.itemId) ?? [];
-      list.push(l);
-      lotsByItem.set(t.itemId, list);
+      // Umgefüllte Käufe verbrauchen das Limit des tatsächlich gekauften Items
+      const id = l.decantFrom?.itemId ?? t.itemId;
+      if (l.decantFrom && !names.has(id)) names.set(id, l.decantFrom.itemName);
+      const list = lotsByItem.get(id) ?? [];
+      list.push({ date: l.date, quantity: l.decantFrom?.quantity ?? l.quantity });
+      lotsByItem.set(id, list);
     }
     const pending = t.offers.reduce((s, o) => s + o.quantity, 0);
-    if (pending > 0) entry(t).pending += pending;
+    if (pending > 0) entry(t.itemId).pending += pending;
   }
 
-  for (const t of trades) {
-    const lots = lotsByItem.get(t.itemId);
-    if (!lots) continue;
-    lotsByItem.delete(t.itemId);
+  for (const [itemId, lots] of lotsByItem) {
     lots.sort((a, b) => a.date - b.date);
     let start: number | null = null;
     let bought = 0;
@@ -67,7 +69,7 @@ export function buyLimitUsage(trades: Trade[], now: number): Map<number, LimitUs
       bought += l.quantity;
     }
     if (start != null && now < start + BUY_LIMIT_WINDOW_MS) {
-      const u = entry(t);
+      const u = entry(itemId);
       u.bought = bought;
       u.windowStart = start;
       u.resetsAt = start + BUY_LIMIT_WINDOW_MS;

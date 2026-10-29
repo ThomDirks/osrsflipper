@@ -1,6 +1,6 @@
 import { isTaxExempt } from "../tax/rules";
 import { netSellPerItem, taxPerItem } from "../tax/tax";
-import type { ItemMeta, MarketRow } from "../market/types";
+import type { ItemMeta, MarketRow, TimeseriesPoint } from "../market/types";
 
 /**
  * Pot decanting: buy a potion at one dose, decant it for free (Bob Barter at the GE, or Zahur in
@@ -205,4 +205,77 @@ export function bestPerFamily(routes: DecantRoute[]): DecantRoute[] {
     if (!cur || r.plan.profit > cur.plan.profit || (r.plan.profit === cur.plan.profit && r.profitPerDose > cur.profitPerDose)) best.set(r.family, r);
   }
   return [...best.values()];
+}
+
+export interface DosePoint {
+  time: number;
+  /** Avg instant-sell of the input ÷ its dose: what buying costs per dose */
+  buyPerDose: number | null;
+  /** (Avg instant-buy of the output − tax) ÷ its dose: what selling earns per dose */
+  sellNetPerDose: number | null;
+  marginPerDose: number | null;
+}
+
+export interface DoseHistoryStats {
+  points: number;
+  avgMargin: number | null;
+  minMargin: number | null;
+  maxMargin: number | null;
+  /** Share of time steps (with both prices) where the route was profitable */
+  profitableShare: number | null;
+}
+
+/**
+ * Lines up the input's and output's /timeseries by timestamp and converts both to per-dose prices.
+ * Steps where either side has no trades stay empty (not interpolated).
+ */
+export function alignDoseHistory(
+  input: TimeseriesPoint[],
+  output: TimeseriesPoint[],
+  fromDose: number,
+  toDose: number,
+  toItemId?: number | null,
+): { series: DosePoint[]; stats: DoseHistoryStats } {
+  const outByTs = new Map(output.map((p) => [p.timestamp, p]));
+  const times = [...new Set([...input.map((p) => p.timestamp), ...output.map((p) => p.timestamp)])].sort((a, b) => a - b);
+  const inByTs = new Map(input.map((p) => [p.timestamp, p]));
+  const series: DosePoint[] = [];
+  const margins: number[] = [];
+  for (const t of times) {
+    const i = inByTs.get(t);
+    const o = outByTs.get(t);
+    const buyPerDose = i?.avgLowPrice != null ? i.avgLowPrice / fromDose : null;
+    const sellNetPerDose = o?.avgHighPrice != null ? (o.avgHighPrice - taxPerItem(o.avgHighPrice, toItemId)) / toDose : null;
+    const marginPerDose = buyPerDose != null && sellNetPerDose != null ? sellNetPerDose - buyPerDose : null;
+    if (marginPerDose != null) margins.push(marginPerDose);
+    series.push({ time: t, buyPerDose, sellNetPerDose, marginPerDose });
+  }
+  const n = margins.length;
+  return {
+    series,
+    stats: {
+      points: n,
+      avgMargin: n ? margins.reduce((a, b) => a + b, 0) / n : null,
+      minMargin: n ? Math.min(...margins) : null,
+      maxMargin: n ? Math.max(...margins) : null,
+      profitableShare: n ? margins.filter((m) => m > 0).length / n : null,
+    },
+  };
+}
+
+/**
+ * Trade-log entry for a decant: logged on the OUTPUT potion (that's what you sell later),
+ * at your cost per output potion. Integer prices: the rounding remainder goes into fees so the
+ * total cost is exact. The source records what you really bought (for the buy limit).
+ */
+export function decantLot(opts: { fromId: number; fromName: string; inputQty: number; buyPrice: number; outputQty: number }) {
+  const cost = Math.floor(opts.inputQty) * Math.floor(opts.buyPrice);
+  const price = Math.max(1, Math.floor(cost / opts.outputQty));
+  const fees = Math.max(0, cost - price * opts.outputQty);
+  return {
+    quantity: opts.outputQty,
+    price,
+    fees,
+    decantFrom: { itemId: opts.fromId, itemName: opts.fromName, quantity: Math.floor(opts.inputQty), price: Math.floor(opts.buyPrice) },
+  };
 }

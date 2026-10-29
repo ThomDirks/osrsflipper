@@ -251,6 +251,7 @@ export default function HistoryPage() {
                           <Link href={`/items/${t.itemId}`} className="flex items-center gap-2 hover:text-accent">
                             <ItemIcon icon={meta?.icon} name={t.itemName} size={18} />
                             <span className="max-w-[180px] truncate">{t.itemName}</span>
+                            {t.lots.some((l) => l.decantFrom) && <Badge tone="info" data-testid="trade-decant-badge">decant</Badge>}
                           </Link>
                         </td>
                         <td className="px-2 py-1.5"><Badge tone={STATUS_TONE[s.status]}>{STATUS_LABEL[s.status]}</Badge></td>
@@ -298,6 +299,11 @@ export default function HistoryPage() {
                                   <div key={l.id} className="flex justify-between gap-2 num">
                                     <span>{dateTime(l.date)}</span>
                                     <span>{l.quantity} × {gpShort(l.price)}{l.fees ? ` + ${gpShort(l.fees)} fees` : ""}</span>
+                                  </div>
+                                ))}
+                                {t.lots.filter((l) => l.decantFrom).map((l) => (
+                                  <div key={`${l.id}-src`} className="text-info">
+                                    Decanted from {l.decantFrom!.quantity} × {l.decantFrom!.itemName} @ {gpShort(l.decantFrom!.price)}
                                   </div>
                                 ))}
                                 {s.openLots.length > 0 && <div className="mt-1 text-faint">Open cost basis (FIFO): <Gp value={s.openCostBasis} /></div>}

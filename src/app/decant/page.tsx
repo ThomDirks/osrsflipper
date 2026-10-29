@@ -1,9 +1,11 @@
 "use client";
-import { ArrowRight, Calculator } from "lucide-react";
+import { ArrowRight, BookPlus, Calculator } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Age, EmptyState, ErrorNote, Est, Gp, InfoNote, PageHeader, Pct, Skeleton } from "@/components/common/indicators";
 import { ItemIcon } from "@/components/common/item-icon";
+import { RouteCompare } from "@/components/decant/route-compare";
+import { emptyTrade, TradeEditor, type Draft } from "@/components/trades/trade-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { AmountInput, Field, Input, Select } from "@/components/ui/input";
@@ -11,7 +13,8 @@ import { Tip } from "@/components/ui/tooltip";
 import { useBuyLimits } from "@/hooks/buy-limits";
 import { useItems, useMarket, useRowMap } from "@/hooks/market";
 import { useNow } from "@/hooks/use-now";
-import { bestPerFamily, buildDecantRoutes, calcDecant, decantStep, type DecantFamily, type DecantRoute } from "@/lib/analysis/decant";
+import { bestPerFamily, buildDecantRoutes, calcDecant, decantLot, decantStep, type DecantFamily, type DecantRoute } from "@/lib/analysis/decant";
+import { newId } from "@/lib/storage/db";
 import { gp, gpShort, num } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/state/settings";
@@ -47,7 +50,7 @@ function DoseLadder({ f, highlight }: { f: DecantFamily; highlight?: { from: num
   );
 }
 
-function DecantCalculator({ families, state, setState }: { families: DecantFamily[]; state: CalcState | null; setState: (s: CalcState) => void }) {
+function DecantCalculator({ families, state, setState, nowSec, onLog }: { families: DecantFamily[]; state: CalcState | null; setState: (s: CalcState) => void; nowSec: number; onLog: (d: Draft) => void }) {
   if (!state) return null;
   const fam = families.find((f) => f.base === state.family);
   if (!fam) return null;
@@ -75,7 +78,28 @@ function DecantCalculator({ families, state, setState }: { families: DecantFamil
 
   return (
     <Card className="mb-3" data-testid="decant-calc">
-      <CardHeader title="Decant calculator" description="Your own prices and quantity. Decanting is free at Bob Barter (GE) and Zahur (Prifddinas)." />
+      <CardHeader
+        title={from && to && from.dose !== to.dose ? `${fam.base}: (${from.dose}) → (${to.dose})` : "Decant calculator"}
+        description="Compare both potions, check the history, then calculate with your own prices. Decanting is free at Bob Barter (GE) and Zahur (Prifddinas)."
+        actions={
+          res && from && to && res.outputQty > 0 ? (
+            <Button
+              size="sm"
+              variant="primary"
+              data-testid="decant-log"
+              onClick={() => {
+                const draft = emptyTrade(to.id, to.name) as Draft;
+                const lot = decantLot({ fromId: from.id, fromName: from.name, inputQty: res.inputQty, buyPrice: state.buy!, outputQty: res.outputQty });
+                draft.lots = [{ id: newId(), date: Date.now(), ...lot }];
+                draft.notes = `Decant: ${gp(res.inputQty)} × ${from.name} @ ${gp(state.buy)} into ${gp(res.outputQty)} × ${to.name}${res.leftoverDose ? ` (+1 spare (${res.leftoverDose}))` : ""}`;
+                onLog(draft);
+              }}
+            >
+              <BookPlus /> Log to Flip History
+            </Button>
+          ) : undefined
+        }
+      />
       <CardBody className="space-y-3">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
           <div className="col-span-2">
@@ -123,6 +147,11 @@ function DecantCalculator({ families, state, setState }: { families: DecantFamil
         ) : (
           <InfoNote>Enter prices and a quantity.</InfoNote>
         )}
+        {from && to && from.dose !== to.dose && (
+          <div className="border-t border-border pt-3">
+            <RouteCompare key={`${from.id}-${to.id}`} from={from} to={to} nowSec={nowSec} />
+          </div>
+        )}
       </CardBody>
     </Card>
   );
@@ -141,6 +170,7 @@ export default function DecantPage() {
   const [sort, setSort] = useState<SortKey>("profit");
   const [query, setQuery] = useState("");
   const [calc, setCalc] = useState<CalcState | null>(null);
+  const [logging, setLogging] = useState<Draft | null>(null);
   const cap = capital ?? settings.defaultCapital;
 
   const { families, routes } = useMemo(() => {
@@ -177,7 +207,7 @@ export default function DecantPage() {
         <Skeleton className="h-60" />
       ) : (
         <>
-          <DecantCalculator families={families} state={calcState} setState={setCalc} />
+          <DecantCalculator families={families} state={calcState} setState={setCalc} nowSec={now / 1000} onLog={setLogging} />
           <Card className="overflow-hidden">
             <CardHeader
               title="Decant routes"
@@ -218,7 +248,16 @@ export default function DecantPage() {
                   </thead>
                   <tbody>
                     {shown.map((r) => (
-                      <tr key={`${r.from.id}-${r.to.id}`} className="border-b border-border/60 hover:bg-surface-2/60" data-testid="decant-row">
+                      <tr
+                        key={`${r.from.id}-${r.to.id}`}
+                        onClick={() => openCalc(r)}
+                        className={cn(
+                          "cursor-pointer border-b border-border/60 hover:bg-surface-2/60",
+                          calcState?.family === r.family && calcState.fromDose === r.from.dose && calcState.toDose === r.to.dose && "bg-accent-soft",
+                        )}
+                        title="Compare prices and history"
+                        data-testid="decant-row"
+                      >
                         <td className="px-3 py-1.5">
                           <span className="flex items-center gap-2">
                             <ItemIcon icon={r.to.icon} name={r.to.name} size={20} />
@@ -229,9 +268,9 @@ export default function DecantPage() {
                           </span>
                         </td>
                         <td className="px-2 py-1.5 whitespace-nowrap">
-                          <Link href={`/items/${r.from.id}`} className="hover:text-accent">({r.from.dose})</Link>
+                          <Link href={`/items/${r.from.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-accent">({r.from.dose})</Link>
                           <ArrowRight className="mx-1 inline size-3 text-faint" />
-                          <Link href={`/items/${r.to.id}`} className="hover:text-accent">({r.to.dose})</Link>
+                          <Link href={`/items/${r.to.id}`} onClick={(e) => e.stopPropagation()} className="hover:text-accent">({r.to.dose})</Link>
                         </td>
                         <td className="px-2 py-1.5 text-right"><Gp value={r.from.estBuy} /></td>
                         <td className="px-2 py-1.5 text-right"><Gp value={r.to.estSell} /></td>
@@ -242,7 +281,7 @@ export default function DecantPage() {
                         <td className="num px-2 py-1.5 text-right text-xs text-muted">{num(r.from.vol24hSells)} / {num(r.to.vol24hBuys)}</td>
                         <td className="px-2 py-1.5 text-right text-xs"><Age seconds={r.ageSec} /></td>
                         <td className="px-2 py-1.5">
-                          <Button size="sm" variant="ghost" onClick={() => openCalc(r)} aria-label={`Calculate ${r.family}`} data-testid="decant-open-calc"><Calculator /></Button>
+                          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openCalc(r); }} aria-label={`Calculate ${r.family}`} data-testid="decant-open-calc"><Calculator /></Button>
                         </td>
                       </tr>
                     ))}
@@ -252,10 +291,11 @@ export default function DecantPage() {
             )}
           </Card>
           <p className="mt-2 text-[11px] text-faint">
-            Estimates from the latest observed prices, no guarantee your offers fill. Thin markets and old prices are common for low-dose potions, so check the data age and volume before buying a full limit.
+            Click a route to compare both potions and their history. Estimates from the latest observed prices, no guarantee your offers fill. Thin markets and old prices are common for low-dose potions, so check the data age and volume before buying a full limit.
           </p>
         </>
       )}
+      {logging && <TradeEditor key={logging.id} initial={logging} mode="buy" open onOpenChange={(o) => !o && setLogging(null)} />}
     </div>
   );
 }

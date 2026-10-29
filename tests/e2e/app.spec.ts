@@ -430,3 +430,24 @@ test("Item-Detail: technische Indikatoren und Buys vs sells", async ({ page }) =
   await expect(page.getByTestId("overlay-bb")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("item-speed")).toContainText("Buy fills in");
 });
+
+test("Decanting: Route anklicken vergleicht beide Tränke und erfasst den Decant in der Flip-Historie", async ({ page }) => {
+  await openApp(page, "/decant");
+  await page.getByTestId("decant-row").filter({ hasText: "Prayer potion" }).click();
+  const compare = page.getByTestId("route-compare");
+  await expect(compare.getByTestId("compare-buy")).toContainText("Prayer potion(");
+  await expect(compare.getByTestId("compare-sell")).toContainText("Prayer potion(4)");
+  await expect(page.getByTestId("compare-stats")).toContainText("Margin/dose now");
+  await page.getByTestId("compare-range-30d").click();
+  await expect(page.getByTestId("compare-stats")).toContainText("30 d");
+
+  await page.getByTestId("decant-log").click();
+  const editor = page.getByTestId("trade-editor");
+  await expect(editor.getByTestId("lot-decant")).toContainText("Decanted from");
+  await editor.getByRole("button", { name: /Save/ }).click();
+  await expect(editor).toBeHidden();
+
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Flip History" }).click();
+  await expect(page.getByTestId("trade-decant-badge")).toBeVisible();
+  await expect(page.getByText("Prayer potion(4)").first()).toBeVisible();
+});

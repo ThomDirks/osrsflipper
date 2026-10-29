@@ -8,7 +8,17 @@ const price = z.number().int().positive().max(2_147_483_647);
 const qty = z.number().int().positive().max(2_147_483_647);
 const gpAmount = z.number().int().min(0).max(1e13);
 
-export const LotSchema = z.object({ id, date: ts, quantity: qty, price, fees: gpAmount.default(0) });
+/** Kauf, der durch Umfüllen (Decanting) entstanden ist: tatsächlich gekauft wurde dieses andere Item */
+export const DecantSourceSchema = z.object({
+  itemId: z.number().int().positive(),
+  itemName: z.string().min(1).max(200),
+  quantity: qty,
+  /** Kaufpreis je gekauftem Stück des Ausgangs-Items */
+  price,
+});
+export type DecantSource = z.infer<typeof DecantSourceSchema>;
+
+export const LotSchema = z.object({ id, date: ts, quantity: qty, price, fees: gpAmount.default(0), decantFrom: DecantSourceSchema.optional() });
 export type Lot = z.infer<typeof LotSchema>;
 
 export const SaleSchema = z.object({

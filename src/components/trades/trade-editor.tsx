@@ -25,7 +25,7 @@ function fromLocalInput(s: string): number {
   return Number.isFinite(t) ? t : Date.now();
 }
 
-type Draft = Omit<Trade, "lots" | "sales" | "offers"> & {
+export type Draft = Omit<Trade, "lots" | "sales" | "offers"> & {
   lots: Array<Omit<Lot, "quantity" | "price"> & { quantity: number | null; price: number | null }>;
   sales: Array<Omit<Sale, "quantity" | "price"> & { quantity: number | null; price: number | null }>;
   offers: Array<Omit<Offer, "quantity" | "price"> & { quantity: number | null; price: number | null }>;
@@ -165,6 +165,12 @@ export function TradeEditor({ initial, open, onOpenChange, mode }: { initial: Tr
                   <Button size="icon" variant="ghost" onClick={() => del("lots", i)} aria-label="Delete buy">
                     <Trash2 />
                   </Button>
+                  {l.decantFrom && (
+                    <p className="col-span-full text-[11px] text-info" data-testid="lot-decant">
+                      Decanted from {gp(l.decantFrom.quantity)} × {l.decantFrom.itemName} @ {gp(l.decantFrom.price)}. The price each is your cost per {d.itemName}
+                      {l.fees ? `, plus ${gp(l.fees)} gp rounding` : ""}. Counts against the buy limit of {l.decantFrom.itemName}.
+                    </p>
+                  )}
                 </div>
               ))}
               {d.lots.length === 0 && <p className="text-xs text-faint">No buys yet.</p>}

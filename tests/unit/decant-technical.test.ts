@@ -147,3 +147,55 @@ describe("Flip speed", () => {
     expect(speedTier(null)).toBe("no data");
   });
 });
+
+describe("Decanting – history and logging", () => {
+  it("aligns per-dose prices by timestamp and leaves gaps empty", async () => {
+    const { alignDoseHistory } = await import("@/lib/analysis/decant");
+    const input = [
+      { timestamp: 1, avgHighPrice: 330, avgLowPrice: 300, highPriceVolume: 1, lowPriceVolume: 1 },
+      { timestamp: 2, avgHighPrice: null, avgLowPrice: null, highPriceVolume: 0, lowPriceVolume: 0 },
+    ];
+    const output = [
+      { timestamp: 1, avgHighPrice: 500, avgLowPrice: 480, highPriceVolume: 1, lowPriceVolume: 1 },
+      { timestamp: 2, avgHighPrice: 500, avgLowPrice: 480, highPriceVolume: 1, lowPriceVolume: 1 },
+    ];
+    const { series, stats } = alignDoseHistory(input, output, 3, 4);
+    expect(series[0]!.buyPerDose).toBe(100);
+    expect(series[0]!.sellNetPerDose).toBe((500 - 10) / 4);
+    expect(series[0]!.marginPerDose).toBeCloseTo(22.5);
+    expect(series[1]!.marginPerDose).toBeNull();
+    expect(stats.points).toBe(1);
+    expect(stats.profitableShare).toBe(1);
+  });
+
+  it("logs the decant on the output potion at exact total cost", async () => {
+    const { decantLot } = await import("@/lib/analysis/decant");
+    const lot = decantLot({ fromId: 139, fromName: "Prayer potion(3)", inputQty: 4, buyPrice: 1001, outputQty: 3 });
+    expect(lot.quantity).toBe(3);
+    expect(lot.price * 3 + lot.fees).toBe(4004);
+    expect(lot.price).toBe(1334);
+    expect(lot.fees).toBe(2);
+    expect(lot.decantFrom).toEqual({ itemId: 139, itemName: "Prayer potion(3)", quantity: 4, price: 1001 });
+  });
+
+  it("decanted buys use the buy limit of the potion you actually bought", async () => {
+    const { buyLimitUsage } = await import("@/lib/portfolio/buy-limit");
+    const now = Date.now();
+    const trade = {
+      id: "t1",
+      itemId: 2434,
+      itemName: "Prayer potion(4)",
+      createdAt: now,
+      updatedAt: now,
+      lots: [{ id: "l1", date: now - 1000, quantity: 300, price: 1334, fees: 0, decantFrom: { itemId: 139, itemName: "Prayer potion(3)", quantity: 400, price: 1001 } }],
+      sales: [],
+      offers: [],
+      notes: "",
+      history: [],
+    };
+    const u = buyLimitUsage([trade], now);
+    expect(u.get(139)?.bought).toBe(400);
+    expect(u.get(139)?.itemName).toBe("Prayer potion(3)");
+    expect(u.has(2434)).toBe(false);
+  });
+});
