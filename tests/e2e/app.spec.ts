@@ -525,3 +525,18 @@ test("Halte-Alarme: erwarteter Verkaufspreis beim Kauf, Alarm im Glockenmenü un
   await page.getByTestId("hold-test").click();
   await expect(page.getByText("Test alert: Prayer potion(4) jumped")).toBeVisible();
 });
+
+test("Flip Speed: „Within reason“ begrenzt Mengen auf das Marktvolumen, Renditen sichtbar", async ({ page }) => {
+  await openApp(page, "/speed");
+  await expect(page.getByTestId("speed-realistic")).toBeChecked();
+  await expect(page.getByTestId("speed-realistic-row")).toContainText("Quantity capped at 25%");
+  await expect(page.getByTestId("speed-returns").first()).toContainText("%");
+  const withCap = await page.getByTestId("speed-row").count();
+  await page.getByTestId("speed-realistic").uncheck();
+  await expect(page.getByTestId("speed-realistic-row")).toContainText("Off:");
+  expect(await page.getByTestId("speed-row").count()).toBeGreaterThanOrEqual(withCap);
+  await page.getByTestId("speed-realistic").check();
+  await page.getByTestId("speed-more").click();
+  await page.getByTestId("speed-min-return-used").fill("1000");
+  await expect(page.getByTestId("speed-row")).toHaveCount(0);
+});

@@ -119,6 +119,8 @@ export default function MethodologyPage() {
         <li>Buy fills in = your quantity ÷ (24 h instant-sells ÷ 24), in minutes; sell fills in uses instant-buys. Quantity = one full buy limit by default, or what your capital buys (limit left) when you switch it.</li>
         <li>This assumes you get the whole market flow, so it’s a best case for comparing items. Speed tiers use the sum of both sides: very fast ≤ 30 min, fast ≤ 2 h, medium ≤ 8 h, slow ≤ 24 h, otherwise very slow.</li>
         <li>Your hold = average time between buy and sale from your own trades (FIFO, weighted by quantity).</li>
+        <li><b>Within reason</b> (on by default): the planned quantity is capped at a share of the slower side’s 24 h trades (default 25%) and at what your capital buys, and items are hidden as outliers when a side has fewer than 10 trades in 24 h, not even 1 item fits the cap, the last price is more than 30% away from its 24 h average, or the ROI is above 50% (usually a stale or one-off price).</li>
+        <li><b>Returns</b>: on capital used = profit ÷ (quantity × buy price); on your capital = profit ÷ the capital you entered; per hour = return on capital used ÷ the hours both sides need to fill (at least 15 minutes).</li>
       </ul>
 
       <H>Decanting</H>

@@ -1,7 +1,7 @@
 import type { Category } from "./category";
 import type { SpeedRow, SpeedTier } from "./speed";
 
-export type SpeedSortKey = "cycle" | "buyFill" | "sellFill" | "volume" | "profit" | "margin" | "roi" | "buyShare" | "sellShare";
+export type SpeedSortKey = "cycle" | "buyFill" | "sellFill" | "volume" | "profit" | "margin" | "roi" | "returnUsed" | "returnCapital" | "returnHour" | "buyShare" | "sellShare";
 export type Pressure = "any" | "buyers" | "balanced" | "sellers";
 export type HeldFilter = "all" | "only" | "hide";
 
@@ -27,6 +27,14 @@ export interface SpeedFilters {
   profitableOnly: boolean;
   flippedOnly: boolean;
   held: HeldFilter;
+  /** fractions; null = off */
+  minReturnUsed: number | null;
+  minReturnCapital: number | null;
+  minReturnHour: number | null;
+  /** "Within reason": cap quantity to the market and hide outliers */
+  realistic: boolean;
+  maxShare: number;
+  minPerSide: number;
 }
 
 export const DEFAULT_SPEED_FILTERS: SpeedFilters = {
@@ -49,6 +57,12 @@ export const DEFAULT_SPEED_FILTERS: SpeedFilters = {
   profitableOnly: true,
   flippedOnly: false,
   held: "all",
+  minReturnUsed: null,
+  minReturnCapital: null,
+  minReturnHour: null,
+  realistic: true,
+  maxShare: 0.25,
+  minPerSide: 10,
 };
 
 /** Buy pressure bands on the 24 h share of instant-buys */
@@ -66,6 +80,9 @@ const KEY: Record<SpeedSortKey, (r: SpeedRow) => number> = {
   profit: (r) => r.profit ?? -Infinity,
   margin: (r) => r.netMargin ?? -Infinity,
   roi: (r) => r.roi ?? -Infinity,
+  returnUsed: (r) => r.returnOnUsed ?? -Infinity,
+  returnCapital: (r) => r.returnOnCapital ?? -Infinity,
+  returnHour: (r) => r.returnPerHour ?? -Infinity,
   buyShare: (r) => r.buyShare ?? -1,
   sellShare: (r) => (r.buyShare == null ? -1 : 1 - r.buyShare),
 };
@@ -98,6 +115,10 @@ export function applySpeedFilters(rows: SpeedRow[], f: SpeedFilters, held: Reado
     if (f.flippedOnly && r.ownSales === 0) return false;
     if (f.held === "only" && !held.has(r.id)) return false;
     if (f.held === "hide" && held.has(r.id)) return false;
+    if (f.realistic && r.outlier) return false;
+    if (f.minReturnUsed != null && (r.returnOnUsed == null || r.returnOnUsed < f.minReturnUsed)) return false;
+    if (f.minReturnCapital != null && (r.returnOnCapital == null || r.returnOnCapital < f.minReturnCapital)) return false;
+    if (f.minReturnHour != null && (r.returnPerHour == null || r.returnPerHour < f.minReturnHour)) return false;
     return true;
   });
   const key = KEY[f.sort];

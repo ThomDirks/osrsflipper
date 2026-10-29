@@ -46,6 +46,41 @@ export interface SpeedRow {
   /** Your own closed sales for this item */
   ownSales: number;
   ownAvgHoldMs: number | null;
+  /** Quantity before the "within reason" cap */
+  rawQty: number;
+  /** true when the quantity was reduced to fit the market's volume */
+  capped: boolean;
+  /** gp tied up: quantity × buy price */
+  capitalUsed: number | null;
+  /** Profit ÷ capital used (on the planned quantity) */
+  returnOnUsed: number | null;
+  /** Profit ÷ your whole capital */
+  returnOnCapital: number | null;
+  /** Return on capital used per hour the flip takes (min. 15 min) */
+  returnPerHour: number | null;
+  /** Why this row is not a realistic trade (null = fine) */
+  outlier: string | null;
+}
+
+export interface RealismOptions {
+  /** Max share of the slower side's 24 h volume you plan to trade (e.g. 0.25) */
+  maxShare: number;
+  /** Min trades per side in 24 h */
+  minPerSide: number;
+  /** Max distance of the last price from its 24 h average (e.g. 0.3) */
+  maxSpike: number;
+  /** ROI above this is treated as a stale or one-off price (e.g. 0.5) */
+  maxRoi: number;
+}
+
+export const DEFAULT_REALISM: RealismOptions = { maxShare: 0.25, minPerSide: 10, maxSpike: 0.3, maxRoi: 0.5 };
+
+export interface SpeedBuildOptions {
+  basis?: "capital" | "limit";
+  /** null = no cap and no outlier check */
+  realism?: RealismOptions | null;
+  /** Your whole capital, for return on capital */
+  capital?: number;
 }
 
 export function speedTier(cycleMin: number | null): SpeedTier {
@@ -82,23 +117,53 @@ export function ownHoldTimes(trades: Trade[]): Map<number, { sales: number; avgH
 }
 
 /** basis "capital": scanner quantity (capital and limit left); "limit": a full GE buy limit */
-export function buildSpeedRows(candidates: FlipCandidate[], rows: ReadonlyMap<number, MarketRow>, own: ReadonlyMap<number, { sales: number; avgHoldMs: number | null }>, basis: "capital" | "limit" = "capital"): SpeedRow[] {
+export function buildSpeedRows(
+  candidates: FlipCandidate[],
+  rows: ReadonlyMap<number, MarketRow>,
+  own: ReadonlyMap<number, { sales: number; avgHoldMs: number | null }>,
+  optsOrBasis: SpeedBuildOptions | "capital" | "limit" = {},
+): SpeedRow[] {
+  const opts: SpeedBuildOptions = typeof optsOrBasis === "string" ? { basis: optsOrBasis } : optsOrBasis;
+  const basis = opts.basis ?? "capital";
+  const realism = opts.realism ?? null;
   const out: SpeedRow[] = [];
   for (const c of candidates) {
     const r = rows.get(c.id);
     const buys24h = r?.d1?.volHigh ?? 0;
     const sells24h = r?.d1?.volLow ?? 0;
-    const qty = basis === "limit" ? Math.max(1, c.limit ?? c.qty) : c.qty > 0 ? c.qty : Math.max(1, c.limitLeft ?? c.limit ?? 1);
+    const rawQty = basis === "limit" ? Math.max(1, c.limit ?? c.qty) : c.qty > 0 ? c.qty : Math.max(1, c.limitLeft ?? c.limit ?? 1);
+    let qty = rawQty;
+    let outlier: string | null = null;
+    if (realism) {
+      const weaker = Math.min(buys24h, sells24h);
+      const cap = Math.floor(weaker * realism.maxShare);
+      // Within reason also means affordable: never more than your capital buys
+      const affordable = opts.capital && c.estBuy ? Math.floor(opts.capital / c.estBuy) : Infinity;
+      qty = Math.min(rawQty, cap, affordable);
+      const spike = (last: number | null | undefined, avg: number | null | undefined) => (last != null && avg != null && avg > 0 ? Math.abs(last - avg) / avg : 0);
+      const off = Math.max(spike(r?.high, r?.d1?.avgHigh), spike(r?.low, r?.d1?.avgLow));
+      if (weaker < realism.minPerSide) outlier = `Only ${weaker} ${buys24h <= sells24h ? "buys" : "sells"} in 24 h`;
+      else if (affordable < 1) outlier = "Your capital doesn’t buy even 1";
+      else if (qty < 1) outlier = `Too little volume for even 1 item at ${Math.round(realism.maxShare * 100)}% of the market`;
+      else if (off > realism.maxSpike) outlier = `Last price ${Math.round(off * 100)}% away from its 24 h average`;
+      else if (c.roi != null && c.roi > realism.maxRoi) outlier = `ROI over ${Math.round(realism.maxRoi * 100)}% usually means a stale or one-off price`;
+      qty = Math.max(qty, 1);
+    }
     const buyFillMin = fillMinutes(qty, sells24h);
     const sellFillMin = fillMinutes(qty, buys24h);
     const cycleMin = buyFillMin != null && sellFillMin != null ? buyFillMin + sellFillMin : null;
     const o = own.get(c.id);
+    const profit = c.netMargin != null ? c.netMargin * qty : null;
+    const capitalUsed = c.estBuy != null ? c.estBuy * qty : null;
+    const returnOnUsed = profit != null && capitalUsed ? profit / capitalUsed : null;
     out.push({
       id: c.id,
       name: c.name,
       icon: c.icon,
       limit: c.limit,
       qty,
+      rawQty,
+      capped: qty < rawQty,
       buys1h: r?.h1?.volHigh ?? 0,
       sells1h: r?.h1?.volLow ?? 0,
       buys24h,
@@ -109,7 +174,7 @@ export function buildSpeedRows(candidates: FlipCandidate[], rows: ReadonlyMap<nu
       cycleMin,
       tier: speedTier(cycleMin),
       netMargin: c.netMargin,
-      profit: c.netMargin != null ? c.netMargin * qty : null,
+      profit,
       roi: c.roi,
       price: c.estBuy,
       category: c.category,
@@ -117,6 +182,11 @@ export function buildSpeedRows(candidates: FlipCandidate[], rows: ReadonlyMap<nu
       taxExempt: c.taxExempt,
       ownSales: o?.sales ?? 0,
       ownAvgHoldMs: o?.avgHoldMs ?? null,
+      capitalUsed,
+      returnOnUsed,
+      returnOnCapital: profit != null && opts.capital ? profit / opts.capital : null,
+      returnPerHour: returnOnUsed != null && cycleMin != null ? returnOnUsed / (Math.max(cycleMin, 15) / 60) : null,
+      outlier,
     });
   }
   return out;

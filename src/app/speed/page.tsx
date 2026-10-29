@@ -12,9 +12,9 @@ import { AmountInput, Field, Input, Select } from "@/components/ui/input";
 import { Tip } from "@/components/ui/tooltip";
 import { useCandidates, useRowMap } from "@/hooks/market";
 import { CATEGORIES, type Category } from "@/lib/analysis/category";
-import { buildSpeedRows, ownHoldTimes, type SpeedTier } from "@/lib/analysis/speed";
+import { buildSpeedRows, DEFAULT_REALISM, ownHoldTimes, type SpeedTier } from "@/lib/analysis/speed";
 import { activeFilterCount, applySpeedFilters, DEFAULT_SPEED_FILTERS, type SpeedFilters, type SpeedSortKey } from "@/lib/analysis/speed-filters";
-import { duration, gp } from "@/lib/format";
+import { duration, gp, pct } from "@/lib/format";
 import { computeFifo } from "@/lib/portfolio/fifo";
 import { useLocalState } from "@/lib/ui/use-local-state";
 import { cn } from "@/lib/utils";
@@ -55,7 +55,10 @@ export default function SpeedPage() {
 
   const own = useMemo(() => ownHoldTimes(trades), [trades]);
   const held = useMemo(() => new Set(trades.filter((t) => computeFifo(t).openQty > 0).map((t) => t.itemId)), [trades]);
-  const all = useMemo(() => buildSpeedRows(candidates, rows, own, basis), [candidates, rows, own, basis]);
+  const cap = capital ?? settings.defaultCapital;
+  const realism = useMemo(() => (f.realistic ? { ...DEFAULT_REALISM, maxShare: f.maxShare, minPerSide: f.minPerSide } : null), [f.realistic, f.maxShare, f.minPerSide]);
+  const all = useMemo(() => buildSpeedRows(candidates, rows, own, { basis, realism, capital: cap }), [candidates, rows, own, basis, realism, cap]);
+  const outliers = useMemo(() => (f.realistic ? all.filter((r) => r.outlier).length : 0), [all, f.realistic]);
   const shown = useMemo(() => applySpeedFilters(all, f, held), [all, f, held]);
   const active = activeFilterCount(f);
   const catCounts = useMemo(() => {
@@ -99,6 +102,9 @@ export default function SpeedPage() {
                   <option value="profit">Highest profit</option>
                   <option value="margin">Highest margin</option>
                   <option value="roi">Highest ROI</option>
+                  <option value="returnUsed">Return on capital used</option>
+                  <option value="returnCapital">Return on my capital</option>
+                  <option value="returnHour">Return per hour</option>
                   <option value="buyShare">Most buy pressure</option>
                   <option value="sellShare">Most sell pressure</option>
                 </Select>
@@ -109,7 +115,7 @@ export default function SpeedPage() {
                   <option value="capital">What my capital buys</option>
                 </Select>
               </Field>
-              <Field label="Capital (gp)"><AmountInput value={capital} onChange={setCapital} placeholder={gp(settings.defaultCapital)} aria-label="Capital" disabled={basis === "limit"} /></Field>
+              <Field label="My capital (gp)"><AmountInput value={capital} onChange={setCapital} placeholder={gp(settings.defaultCapital)} aria-label="Capital" /></Field>
               <Field label="Min. volume 24 h"><AmountInput value={f.minVolume} onChange={(v) => set({ minVolume: v })} aria-label="Minimum volume" /></Field>
               <Field label="My items">
                 <Select value={f.held} onChange={(e) => set({ held: e.target.value as SpeedFilters["held"] })} aria-label="Items I hold" data-testid="speed-held">
@@ -119,6 +125,16 @@ export default function SpeedPage() {
                 </Select>
               </Field>
             </div>
+
+            <label className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm" data-testid="speed-realistic-row">
+              <input type="checkbox" checked={f.realistic} onChange={(e) => set({ realistic: e.target.checked })} data-testid="speed-realistic" />
+              <span className="font-medium">Within reason</span>
+              <span className="text-xs text-muted">
+                {f.realistic
+                  ? `Quantity capped at ${Math.round(f.maxShare * 100)}% of the slower side’s 24 h trades and to what your capital buys; ${outliers} outlier${outliers === 1 ? "" : "s"} hidden (fewer than ${f.minPerSide} trades a side, price spikes, ROI over 50%).`
+                  : "Off: quantities ignore how much the market actually trades, and outliers are shown."}
+              </span>
+            </label>
 
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 text-[11px] uppercase tracking-wide text-faint">Speed</span>
@@ -164,6 +180,25 @@ export default function SpeedPage() {
                     <option value="sellers">Sellers heavy (&lt; 40% buys)</option>
                   </Select>
                 </Field>
+                <Field label="Min. return on capital used (%)" hint="Profit ÷ gp put into this flip">
+                  <Input type="number" step="0.1" value={f.minReturnUsed == null ? "" : +(f.minReturnUsed * 100).toFixed(3)} onChange={(e) => set({ minReturnUsed: e.target.value === "" ? null : Number(e.target.value) / 100 })} aria-label="Minimum return on capital used" data-testid="speed-min-return-used" />
+                </Field>
+                <Field label="Min. return on my capital (%)" hint={`Profit ÷ your ${gp(cap)} gp`}>
+                  <Input type="number" step="0.01" value={f.minReturnCapital == null ? "" : +(f.minReturnCapital * 100).toFixed(3)} onChange={(e) => set({ minReturnCapital: e.target.value === "" ? null : Number(e.target.value) / 100 })} aria-label="Minimum return on my capital" data-testid="speed-min-return-capital" />
+                </Field>
+                <Field label="Min. return per hour (%)" hint="Return on capital used ÷ hours to fill">
+                  <Input type="number" step="0.1" value={f.minReturnHour == null ? "" : +(f.minReturnHour * 100).toFixed(3)} onChange={(e) => set({ minReturnHour: e.target.value === "" ? null : Number(e.target.value) / 100 })} aria-label="Minimum return per hour" data-testid="speed-min-return-hour" />
+                </Field>
+                <Field label="Within reason: max share of volume">
+                  <Select value={f.maxShare} onChange={(e) => set({ maxShare: Number(e.target.value) })} disabled={!f.realistic} aria-label="Max share of volume">
+                    {[0.05, 0.1, 0.25, 0.5, 1].map((v) => <option key={v} value={v}>{v * 100}% of 24 h trades</option>)}
+                  </Select>
+                </Field>
+                <Field label="Within reason: min. trades per side">
+                  <Select value={f.minPerSide} onChange={(e) => set({ minPerSide: Number(e.target.value) })} disabled={!f.realistic} aria-label="Min trades per side">
+                    {[5, 10, 25, 50, 100, 500].map((v) => <option key={v} value={v}>{v} in 24 h</option>)}
+                  </Select>
+                </Field>
                 <Field label="Min. volume last hour"><AmountInput value={f.minVolume1h} onChange={(v) => set({ minVolume1h: v })} aria-label="Minimum volume last hour" /></Field>
                 <Field label="Min. buy limit"><AmountInput value={f.minLimit} onChange={(v) => set({ minLimit: v })} aria-label="Minimum buy limit" /></Field>
                 <Field label="Members">
@@ -198,6 +233,12 @@ export default function SpeedPage() {
                     <th className="px-2 py-2 font-medium">Speed</th>
                     <th className="px-2 py-2 text-right font-medium">Margin<Est /></th>
                     <th className="px-2 py-2 text-right font-medium">Profit<Est /></th>
+                    <th className="px-2 py-2 text-right font-medium"><Tip content="Capital used: quantity × buy price"><span className="cursor-help">Capital used</span></Tip></th>
+                    <th className="px-2 py-2 text-right font-medium">
+                      <Tip content={<div><div>On used: profit ÷ capital used</div><div>On mine: profit ÷ your whole capital</div><div>Per hour: return on used ÷ hours to fill both sides (min. 15 min)</div></div>}>
+                        <span className="cursor-help">Return</span>
+                      </Tip>
+                    </th>
                     <th className="px-2 py-2 text-right font-medium"><Tip content="Your own trades: number of sales and average time between buying and selling"><span className="cursor-help">Your hold</span></Tip></th>
                   </tr>
                 </thead>
@@ -220,12 +261,26 @@ export default function SpeedPage() {
                       <td className="px-2 py-1.5"><SplitBar buys={r.buys24h} sells={r.sells24h} /></td>
                       <td className="px-2 py-1.5"><SplitBar buys={r.buys1h} sells={r.sells1h} className="min-w-[90px]" /></td>
                       <td className="px-2 py-1.5 text-right"><Gp value={r.price} short /></td>
-                      <td className="num px-2 py-1.5 text-right text-xs">{gp(r.qty)}</td>
+                      <td className="num px-2 py-1.5 text-right text-xs">
+                        {r.capped ? (
+                          <Tip content={`Capped from ${gp(r.rawQty)} to ${gp(r.qty)}: at most ${Math.round(f.maxShare * 100)}% of the ${gp(Math.min(r.buys24h, r.sells24h))} trades on the slower side, and no more than your ${gp(cap)} gp buys`}>
+                            <span className="cursor-help text-warn" data-testid="speed-qty-capped">{gp(r.qty)}*</span>
+                          </Tip>
+                        ) : (
+                          gp(r.qty)
+                        )}
+                      </td>
                       <td className="num px-2 py-1.5 text-right">{minutes(r.buyFillMin)}</td>
                       <td className="num px-2 py-1.5 text-right">{minutes(r.sellFillMin)}</td>
                       <td className="px-2 py-1.5"><Badge tone={TIER_TONE[r.tier]}>{r.tier}</Badge></td>
                       <td className="px-2 py-1.5 text-right"><Gp value={r.netMargin} colored /></td>
                       <td className="px-2 py-1.5 text-right"><Gp value={r.profit} colored short /></td>
+                      <td className="px-2 py-1.5 text-right"><Gp value={r.capitalUsed} short /></td>
+                      <td className="num px-2 py-1 text-right text-[11px] leading-tight" data-testid="speed-returns">
+                        <div className={cn((r.returnOnUsed ?? 0) > 0 ? "text-pos" : "text-neg")} title="Return on capital used">{pct(r.returnOnUsed)} <span className="text-faint">used</span></div>
+                        <div title="Return on your whole capital">{pct(r.returnOnCapital)} <span className="text-faint">mine</span></div>
+                        <div title="Return on capital used per hour">{pct(r.returnPerHour)} <span className="text-faint">/ h</span></div>
+                      </td>
                       <td className="px-2 py-1.5 text-right text-xs text-muted">{r.ownSales > 0 ? `${duration(r.ownAvgHoldMs)} · ${r.ownSales}×` : "–"}</td>
                     </tr>
                   ))}
