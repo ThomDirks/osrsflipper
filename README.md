@@ -11,4 +11,4 @@ Windows desktop version of OSRS GE Flipper. Download **OSRS GE Flipper.exe** fro
 - **Grey** and **Grey light** themes next to light and dark
 
 Windows may show "Windows protected your PC" because the exe isn't code-signed. Click *More info* → *Run anyway*.
-Built from main at ba70e20.
+Built from main at 21365fe.
