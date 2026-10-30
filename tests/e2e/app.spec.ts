@@ -634,3 +634,20 @@ test("Big Trades: kleiner Knopf schaltet Lock-in an, Prüfliste, wieder aus", as
   await expect(page.locator("html")).not.toHaveAttribute("data-lockin", "on");
   await expect(page.getByTestId("lockin-ticker")).toHaveCount(0);
 });
+
+test("Degen mode: Rad dreht, landet, Ergebnis mit Gewinn", async ({ page }) => {
+  test.setTimeout(60_000);
+  await openApp(page, "/");
+  await page.getByTestId("lockin-toggle").click();
+  await expect(page).toHaveURL(/\/big$/);
+  await page.getByTestId("open-degen").click();
+  const degen = page.getByTestId("degen");
+  await expect(degen).toBeVisible();
+  await page.getByTestId("degen-mute").click();
+  await page.getByTestId("degen-spin").click();
+  await expect(page.getByTestId("degen-result")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("degen-profit")).toContainText("+");
+  await page.getByTestId("degen-log").click();
+  await expect(degen).toBeHidden();
+  await expect(page.getByTestId("trade-editor")).toBeVisible();
+});

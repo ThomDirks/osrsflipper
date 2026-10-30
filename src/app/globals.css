@@ -320,3 +320,34 @@ html[data-lockin="on"] body::after {
   .lockin-ticker-track,
   .lockin-meter > span[data-on="true"] { animation: none; }
 }
+
+/* ---------------- Degen mode ---------------- */
+/* Strobe stays under 3 flashes a second (150 BPM = 2.5/s) */
+.degen-strobe { animation: degen-strobe 0.4s steps(1) infinite; }
+@keyframes degen-strobe {
+  0% { background-color: #12020a; }
+  50% { background-color: #050106; }
+}
+.degen-win { background: radial-gradient(circle at 50% 45%, rgba(255, 212, 59, 0.22), transparent 60%), #050106; }
+.degen-shake { animation: degen-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) 3; }
+@keyframes degen-shake {
+  10%, 90% { transform: translate(-2px, 1px); }
+  20%, 80% { transform: translate(4px, -2px); }
+  30%, 50%, 70% { transform: translate(-7px, 3px) rotate(-0.4deg); }
+  40%, 60% { transform: translate(7px, -3px) rotate(0.4deg); }
+}
+.degen-coin { top: -40px; animation-name: degen-fall; animation-timing-function: cubic-bezier(0.3, 0.1, 0.7, 1); animation-iteration-count: infinite; }
+@keyframes degen-fall {
+  from { transform: translateY(0) rotate(0); opacity: 1; }
+  to { transform: translateY(110vh) rotate(var(--rot, 360deg)); opacity: 0.9; }
+}
+.degen-payline { box-shadow: 0 0 24px rgba(255, 212, 59, 0.55), inset 0 0 24px rgba(255, 212, 59, 0.25); animation: lockin-kick 0.4s ease-out infinite; }
+.degen-spin { animation: degen-pulse 0.8s ease-in-out infinite; }
+@keyframes degen-pulse { 50% { box-shadow: 0 0 110px rgba(255, 31, 69, 1), 0 0 30px rgba(255, 212, 59, 0.8); } }
+.degen-title .lockin-glitch { background: linear-gradient(90deg, #ff1f45, #ffd43b, #3dff8e, #22e6ff, #ff4fd8, #ff1f45); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: lockin-glitch 2.6s steps(1) infinite, degen-hue 3s linear infinite; }
+@keyframes degen-hue { to { background-position: 300% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .degen-strobe, .degen-shake, .degen-coin, .degen-payline, .degen-spin, .degen-title .lockin-glitch { animation: none; }
+  .degen-coin { display: none; }
+}

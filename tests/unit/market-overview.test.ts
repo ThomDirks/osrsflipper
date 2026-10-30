@@ -116,3 +116,29 @@ describe("Watchlist alerts", () => {
     expect(s[0]!.key).toMatch(/^watch:7:/);
   });
 });
+
+describe("Degen mode", () => {
+  it("pools the biggest full-limit flips and builds an edging strip", async () => {
+    const { buildStrip, degenPool, pickWinner, reelPosition, spinKeyframes } = await import("@/lib/analysis/degen");
+    const rows = [
+      sRow(1, 1, 1000, 100, { limit: 10, buys24h: 5, sells24h: 5 }),
+      sRow(2, 1, 1000, 5000, { limit: 8, buys24h: 5, sells24h: 5 }),
+      sRow(3, 1, 1000, 50, { limit: 100, buys24h: 5, sells24h: 5 }),
+      sRow(4, 1, 1000, -5, { limit: 100, buys24h: 5, sells24h: 5 }),
+      sRow(5, 1, 1000, 9999, { limit: 100, buys24h: 0, sells24h: 5 }),
+    ];
+    const pool = degenPool(rows);
+    expect(pool.map((p) => p.id)).toEqual([2, 3, 1]); // 40k, 5k, 1k; no losers, no dead items
+    expect(pool[0]!.profit).toBe(40_000);
+    expect(pickWinner(pool, () => 0)!.id).toBe(2);
+    expect(pickWinner([], () => 0)).toBeNull();
+    const w = pool[2]!;
+    const { strip, winnerAt } = buildStrip(pool, w, 64, () => 0.5);
+    expect(strip[winnerAt]!.id).toBe(1);
+    expect(strip[winnerAt + 1]!.id).toBe(2); // the biggest sits right after: near miss
+    const frames = spinKeyframes(winnerAt);
+    expect(reelPosition(frames, 0)).toBe(0);
+    expect(reelPosition(frames, 100)).toBe(winnerAt);
+    expect(reelPosition(frames, 10.4)).toBeGreaterThan(winnerAt); // nudges past
+  });
+});

@@ -1,10 +1,11 @@
 "use client";
-import { Check, Plus, X, Zap } from "lucide-react";
+import { Check, Dices, Plus, X, Zap } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ErrorNote, Skeleton } from "@/components/common/indicators";
 import { ItemIcon } from "@/components/common/item-icon";
 import { playLockin, useBigTrades, useLockin } from "@/components/lockin/lockin";
+import { DegenMode } from "@/components/lockin/degen-mode";
 import { useRowActions } from "@/components/market/use-row-actions";
 import { TradeEditor } from "@/components/trades/trade-editor";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ export default function BigTradesPage() {
   const [s, setS] = useLockin();
   const settings = useSettings();
   const [capital, setCapital] = useState<number | null>(null);
+  const [degen, setDegen] = useState(false);
   const { trades, level, isLoading, error, capital: cap, historyLoaded } = useBigTrades(s, capital);
   const actions = useRowActions();
   const now = useNow(1000);
@@ -134,6 +136,16 @@ export default function BigTradesPage() {
             <Zap /> {s.on ? "Leave lock-in" : "Lock in"}
           </Button>
           {s.on && <span className="lockin-blink font-mono text-xs font-bold text-accent">● 150 BPM</span>}
+          {s.on && (
+            <button
+              type="button"
+              onClick={() => setDegen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border-2 border-warn px-3 py-1.5 font-mono text-sm font-black uppercase tracking-widest text-warn hover:bg-warn-soft"
+              data-testid="open-degen"
+            >
+              <Dices className="size-4" /> Degen mode
+            </button>
+          )}
           <div className="ml-auto grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Field label="Min. profit per flip">
               <Select value={s.minProfit} onChange={(e) => setS({ ...s, minProfit: Number(e.target.value) })} aria-label="Minimum profit" data-testid="big-min-profit">
@@ -171,6 +183,15 @@ export default function BigTradesPage() {
         <ol className="grid gap-3 lg:grid-cols-2" data-testid="big-list">
           {shown.slice(0, 30).map((t, i) => <TradeCard key={t.row.id} t={t} rank={i + 1} onLog={() => actions.log(t.row)} />)}
         </ol>
+      )}
+      {degen && (
+        <DegenMode
+          onClose={() => setDegen(false)}
+          onLog={(it) => {
+            setDegen(false);
+            actions.log({ ...it.row, qty: it.qty });
+          }}
+        />
       )}
       {actions.editing && <TradeEditor key={actions.editing.draft.id + actions.editing.mode} initial={actions.editing.draft} mode={actions.editing.mode} open onOpenChange={(o) => !o && actions.setEditing(null)} />}
     </div>

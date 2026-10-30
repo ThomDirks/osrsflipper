@@ -137,6 +137,7 @@ export default function MethodologyPage() {
         <li>Items whose profit in one flip at a realistic quantity (within reason, at your whole capital) is at least the chosen minimum (default 5M).</li>
         <li><b>Verified</b> = all checks hold: the older price is at most 30 minutes old; both sides traded in the last hour; the margin is still there at the last hour’s average prices (at least half of it); the slower side traded at least twice your quantity (and 5) in 24 h; no outlier flag and plausible data; and the item actually swings (hourly variation over 24 h or daily variation over 30 days at least the chosen minimum, default 3%).</li>
         <li>Lock-in level from the best verified flip as a share of your capital: 5 ≥ 50%, 4 ≥ 25%, 3 ≥ 10%, 2 ≥ 3%, otherwise 1.</li>
+        <li><b>Degen mode</b> (inside lock-in): a slot reel over the 40 biggest single flips on the market, one full buy limit × net margin, at any price and ignoring your capital and “within reason”. Items need a positive margin and at least one trade on each side today. The pick is weighted towards the top (rank 1 is most likely). Entertainment, not advice.</li>
       </ul>
 
       <H>Decanting</H>
