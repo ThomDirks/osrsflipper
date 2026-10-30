@@ -224,3 +224,99 @@ body {
 .data-table th {
   white-space: nowrap;
 }
+
+/* ------------------------------------------------------------------ *
+ * Lock-in mode (Big Trades): overrides any theme while it's on.
+ * --lock-level (1–5) drives how hard the edge glow hits.
+ * ------------------------------------------------------------------ */
+html[data-lockin="on"] {
+  --bg: #050307;
+  --surface: #0e0a11;
+  --surface-2: #160f1a;
+  --surface-3: #211521;
+  --border: #3b1622;
+  --border-strong: #6b1d30;
+  --text: #fff3ef;
+  --muted: #d9a7ad;
+  --faint: #8f6168;
+  --pos: #3dff8e;
+  --pos-soft: rgba(61, 255, 142, 0.14);
+  --neg: #ff3b4e;
+  --neg-soft: rgba(255, 59, 78, 0.16);
+  --warn: #ffd43b;
+  --warn-soft: rgba(255, 212, 59, 0.14);
+  --accent: #ff1f45;
+  --accent-fg: #0b0306;
+  --accent-soft: rgba(255, 31, 69, 0.18);
+  --gold: #ffd43b;
+  --info: #22e6ff;
+  --info-soft: rgba(34, 230, 255, 0.13);
+  --violet: #ff4fd8;
+  --violet-soft: rgba(255, 79, 216, 0.14);
+  --chart-grid: #1c0f15;
+  --shadow: 0 0 0 1px rgba(255, 31, 69, 0.12), 0 4px 18px rgba(255, 0, 40, 0.12);
+  --header-bg: rgba(5, 3, 7, 0.86);
+  color-scheme: dark;
+}
+
+/* CRT scanlines */
+html[data-lockin="on"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay;
+}
+
+/* Red edge glow pulsing on the kick (150 BPM = 0.4 s) */
+html[data-lockin="on"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 69;
+  pointer-events: none;
+  box-shadow: inset 0 0 calc(30px + var(--lock-level, 1) * 28px) rgba(255, 16, 52, calc(0.1 + var(--lock-level, 1) * 0.08));
+  animation: lockin-kick 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+}
+
+@keyframes lockin-kick {
+  0% { opacity: 1; }
+  55% { opacity: 0.25; }
+  100% { opacity: 0.25; }
+}
+
+.lockin-glitch {
+  position: relative;
+  display: inline-block;
+  animation: lockin-glitch 2.6s steps(1) infinite;
+}
+@keyframes lockin-glitch {
+  0%, 86%, 100% { text-shadow: 2px 0 rgba(34, 230, 255, 0.7), -2px 0 rgba(255, 31, 69, 0.8); transform: none; }
+  88% { text-shadow: -4px 0 rgba(34, 230, 255, 0.9), 4px 0 rgba(255, 31, 69, 0.9); transform: translateX(2px) skewX(-6deg); }
+  90% { text-shadow: 5px 0 rgba(34, 230, 255, 0.9), -5px 0 rgba(255, 31, 69, 0.9); transform: translateX(-3px); }
+  92% { text-shadow: 0 0 transparent; transform: translateY(1px) skewX(4deg); }
+}
+
+.lockin-blink { animation: lockin-blink 0.4s steps(1) infinite; }
+@keyframes lockin-blink { 0% { opacity: 1; } 50% { opacity: 0.2; } }
+
+.lockin-ticker-track {
+  display: inline-flex;
+  gap: 2.5rem;
+  white-space: nowrap;
+  animation: lockin-ticker 38s linear infinite;
+}
+@keyframes lockin-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+.lockin-meter > span { transition: background-color 0.2s; }
+.lockin-meter > span[data-on="true"] { animation: lockin-kick 0.4s ease-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-lockin="on"] body::after,
+  .lockin-glitch,
+  .lockin-blink,
+  .lockin-ticker-track,
+  .lockin-meter > span[data-on="true"] { animation: none; }
+}

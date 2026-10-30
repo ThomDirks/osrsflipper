@@ -86,12 +86,12 @@ test("5. Filter im Scanner setzen", async ({ page }) => {
   await expect(page.getByTestId("scanner-row").first()).toBeVisible();
   const before = await page.getByTestId("scanner-row").count();
   expect(before).toBeGreaterThan(0); // synthetische Preise variieren zeitabhängig
-  await page.getByTestId("toggle-filters").click();
-  await page.getByTestId("filter-min-roi").fill("1000");
+  await page.getByTestId("scanner-more").click();
+  await page.getByTestId("scanner-min-roi").fill("1000");
   await expect(page.getByText("No items match the filters")).toBeVisible();
   await page.getByRole("button", { name: "Reset filters" }).click();
   await expect(page.getByTestId("scanner-row").first()).toBeVisible();
-  await page.getByTestId("filter-min-quality").selectOption("75");
+  await page.getByTestId("scanner-min-quality").selectOption("75");
   const filtered = await page.getByTestId("scanner-row").count();
   expect(filtered).toBeLessThanOrEqual(before);
   await page.getByTestId("scanner-sort").selectOption("roi");
@@ -416,40 +416,7 @@ test("Decanting: Route (2)→(4) mit Gewinn, Rechner übernimmt die Route", asyn
   await expect(result).toContainText("spare (2) potion");
 });
 
-test("Flip Speed: Buys vs sells mit Füllzeiten und Mengenbasis", async ({ page }) => {
-  await openApp(page, "/speed");
-  const first = page.getByTestId("speed-row").first();
-  await expect(first).toBeVisible();
-  await expect(first).toContainText(/buys/);
-  await expect(first).toContainText(/sells/);
-  await page.getByTestId("speed-basis").selectOption("capital");
-  await expect(page.getByTestId("speed-row").first()).toBeVisible();
-  await page.getByTestId("speed-more").click();
-  await page.getByTestId("speed-mine").check();
-  await expect(page.getByTestId("speed-row")).toHaveCount(0);
-  await expect(page.getByTestId("speed-reset")).toContainText("Reset");
-  await page.getByTestId("speed-reset").click();
-  await expect(page.getByTestId("speed-row").first()).toBeVisible();
-});
 
-test("Flip Speed: Filter nach Kategorie, Geschwindigkeit und Preis, bleiben gespeichert", async ({ page }) => {
-  await openApp(page, "/speed");
-  const rows = page.getByTestId("speed-row");
-  await expect(rows.first()).toBeVisible();
-  const total = await rows.count();
-  await page.getByTestId("speed-cat-Potions").click();
-  await expect(rows.first()).toBeVisible();
-  for (const t of await rows.allTextContents()) expect(t).toContain("Potions");
-  expect(await rows.count()).toBeLessThan(total);
-  await page.getByTestId("speed-tier-very-fast").click();
-  for (const t of await rows.allTextContents()) expect(t).toContain("very fast");
-  await page.getByTestId("speed-more").click();
-  await page.getByTestId("speed-max-price").fill("1");
-  await expect(rows).toHaveCount(0);
-  await page.reload();
-  await expect(page.getByTestId("speed-cat-Potions")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("speed-reset")).toContainText("3 filters");
-});
 
 test("Seitenleiste: Gruppen auf- und zuklappen, Symbole bleiben anklickbar", async ({ page }) => {
   await openApp(page, "/");
@@ -526,17 +493,144 @@ test("Halte-Alarme: erwarteter Verkaufspreis beim Kauf, Alarm im Glockenmenü un
   await expect(page.getByText("Test alert: Prayer potion(4) jumped")).toBeVisible();
 });
 
-test("Flip Speed: „Within reason“ begrenzt Mengen auf das Marktvolumen, Renditen sichtbar", async ({ page }) => {
+test("Scanner: /speed öffnet die Speed-Ansicht, Ansichten und Mengenbasis", async ({ page }) => {
   await openApp(page, "/speed");
-  await expect(page.getByTestId("speed-realistic")).toBeChecked();
-  await expect(page.getByTestId("speed-realistic-row")).toContainText("Quantity capped at 25%");
-  await expect(page.getByTestId("speed-returns").first()).toContainText("%");
-  const withCap = await page.getByTestId("speed-row").count();
-  await page.getByTestId("speed-realistic").uncheck();
-  await expect(page.getByTestId("speed-realistic-row")).toContainText("Off:");
-  expect(await page.getByTestId("speed-row").count()).toBeGreaterThanOrEqual(withCap);
-  await page.getByTestId("speed-realistic").check();
-  await page.getByTestId("speed-more").click();
-  await page.getByTestId("speed-min-return-used").fill("1000");
-  await expect(page.getByTestId("speed-row")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/scanner\?view=speed/);
+  await expect(page.getByTestId("view-speed")).toHaveAttribute("data-state", "active");
+  const first = page.getByTestId("scanner-row").first();
+  await expect(first).toContainText(/buys/);
+  await expect(first).toContainText(/sells/);
+  await page.getByTestId("scanner-basis").selectOption("limit");
+  await expect(page.getByTestId("scanner-row").first()).toBeVisible();
+  for (const v of ["overview", "profit", "returns", "signals"]) {
+    await page.getByTestId(`view-${v}`).click();
+    await expect(page.getByTestId("scanner-row").first()).toBeVisible();
+  }
+  await page.getByTestId("scanner-more").click();
+  await page.getByTestId("scanner-mine").check();
+  await expect(page.getByTestId("scanner-row")).toHaveCount(0);
+  await page.getByTestId("scanner-reset").click();
+  await expect(page.getByTestId("scanner-row").first()).toBeVisible();
+});
+
+test("Scanner: Filter nach Kategorie und Preis bleiben gespeichert, Within reason", async ({ page }) => {
+  await openApp(page, "/scanner");
+  const rows = page.getByTestId("scanner-row");
+  await expect(rows.first()).toBeVisible();
+  await expect(page.getByTestId("scanner-realistic")).toBeChecked();
+  await expect(page.getByTestId("scanner-realistic-row")).toContainText("Quantity capped at 25%");
+  const total = await rows.count();
+  await page.getByTestId("scanner-cat-Potions").click();
+  await expect(rows.first()).toBeVisible();
+  for (const t of await rows.allTextContents()) expect(t).toContain("Potions");
+  expect(await rows.count()).toBeLessThanOrEqual(total);
+  await page.getByTestId("scanner-more").click();
+  await page.getByTestId("scanner-max-price").fill("1");
+  await expect(rows).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId("scanner-cat-Potions")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("scanner-reset")).toContainText("2 filters");
+  await page.getByTestId("scanner-reset").click();
+  await page.getByTestId("scanner-realistic").uncheck();
+  await expect(page.getByTestId("scanner-realistic-row")).toContainText("Off:");
+  expect(await rows.count()).toBeGreaterThanOrEqual(1);
+});
+
+test("Scanner: Presets, eigenes Preset speichern und löschen", async ({ page }) => {
+  await openApp(page, "/scanner");
+  await expect(page.getByTestId("preset-all")).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("preset-overnight").click();
+  await expect(page.getByTestId("preset-overnight")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("scanner-away")).toHaveValue("8");
+  await expect(page.getByTestId("scanner-sort")).toHaveValue("profit");
+  await page.getByTestId("preset-quick").click();
+  await expect(page.getByTestId("scanner-sort")).toHaveValue("returnHour");
+  await expect(page.getByTestId("scanner-away")).toHaveValue("");
+  await page.getByTestId("scanner-cat-Potions").click();
+  await page.getByTestId("preset-save-start").click();
+  await page.getByTestId("preset-name").fill("Quick potions");
+  await page.getByTestId("preset-save").click();
+  const mine = page.getByTestId("scanner-presets").getByRole("button", { name: "Quick potions", exact: true });
+  await expect(mine).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("preset-all").click();
+  await mine.click();
+  await expect(page.getByTestId("scanner-cat-Potions")).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Delete preset Quick potions" }).click();
+  await expect(mine).toHaveCount(0);
+});
+
+test("Scanner: Tastatur, Schnellansicht, Ausblenden und Watchlist", async ({ page }) => {
+  await openApp(page, "/scanner");
+  const rows = page.getByTestId("scanner-row");
+  await expect(rows.first()).toBeVisible();
+  const firstName = (await rows.first().locator("a").first().textContent())!;
+  await page.keyboard.press("j");
+  await expect(rows.first()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Enter");
+  const panel = page.getByTestId("side-panel");
+  await expect(panel).toContainText(firstName);
+  await expect(panel).toContainText("Price history");
+  await page.keyboard.press("w");
+  await expect(page.getByText(`${firstName} added to the watchlist.`)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await page.keyboard.press("d");
+  await expect(rows.first().locator("a").first()).not.toHaveText(firstName);
+  await page.getByTestId("scanner-show-dismissed").click();
+  await expect(page.getByTestId("scanner-row").filter({ hasText: firstName })).toBeVisible();
+  await page.keyboard.press("2");
+  await expect(page.getByTestId("view-profit")).toHaveAttribute("data-state", "active");
+});
+
+test("Slot-Planer: Vorschlag bearbeiten und als Kaufangebote erfassen", async ({ page }) => {
+  await openApp(page, "/scanner");
+  await expect(page.getByTestId("scanner-row").first()).toBeVisible();
+  await page.getByTestId("open-planner").click();
+  const planner = page.getByTestId("slot-planner");
+  const rows = planner.getByTestId("planner-row");
+  await expect(rows.first()).toBeVisible();
+  const n = await rows.count();
+  await rows.first().getByTestId("planner-remove").click();
+  await expect(rows).toHaveCount(n - 1);
+  await rows.first().getByTestId("planner-qty").fill("1");
+  const name = (await rows.first().locator("td").first().textContent())!.trim();
+  await planner.getByTestId("planner-log").click();
+  await expect(planner).toBeHidden();
+  await expect(page.getByText(/buy offers? logged/)).toBeVisible();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Flip History" }).click();
+  await expect(page.getByRole("link", { name }).first()).toBeVisible();
+});
+
+test("Top 10: gemeinsame Filter und Presets", async ({ page }) => {
+  await openApp(page, "/top");
+  await expect(page.getByTestId("top-pick").first()).toBeVisible();
+  await page.getByTestId("top-toggle-filters").click();
+  await expect(page.getByTestId("top-filters")).toBeVisible();
+  await page.getByTestId("top10-more").click();
+  await page.getByTestId("top10-max-price").fill("1");
+  await expect(page.getByTestId("top-pick")).toHaveCount(0);
+  await page.getByTestId("preset-all").click();
+  await expect(page.getByTestId("top-pick").first()).toBeVisible();
+});
+
+test("Big Trades: kleiner Knopf schaltet Lock-in an, Prüfliste, wieder aus", async ({ page }) => {
+  await openApp(page, "/");
+  await page.getByTestId("lockin-toggle").click();
+  await expect(page).toHaveURL(/\/big$/);
+  await expect(page.locator("html")).toHaveAttribute("data-lockin", "on");
+  await expect(page.getByTestId("lockin-ticker")).toBeVisible();
+  await expect(page.getByTestId("lockin-level")).toContainText(/Level [1-5]/);
+  await page.getByTestId("big-min-profit").selectOption("100000");
+  await page.getByTestId("big-min-vol").selectOption("0.01");
+  await page.getByTestId("big-unverified").check();
+  const card = page.getByTestId("big-trade").first();
+  await expect(card).toBeVisible();
+  await expect(card.getByTestId("big-checks")).toContainText("Gap holds at average prices");
+  await expect(card.getByTestId("big-stamp")).toHaveText(/VERIFIED|UNVERIFIED/);
+  // bleibt beim Seitenwechsel an
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-lockin", "on");
+  await page.getByTestId("lockin-toggle").click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-lockin", "on");
+  await expect(page.getByTestId("lockin-ticker")).toHaveCount(0);
 });

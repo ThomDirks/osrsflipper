@@ -51,11 +51,15 @@ export function aggregateMonth(blocks: DayBlock[]): Map<number, MonthAgg> {
   for (const id of ids) {
     // Index = Tagesposition, damit Lücken im Trend und in den Renditen berücksichtigt werden
     const mids: Array<number | null> = [];
+    const his: Array<number | null> = [];
+    const los: Array<number | null> = [];
     const spreads: number[] = [];
     const vols: number[] = [];
     for (const d of days) {
       const e = d.map.get(id);
       mids.push(blockMidPrice(e));
+      his.push(e?.avgHigh != null ? Math.round(e.avgHigh) : null);
+      los.push(e?.avgLow != null ? Math.round(e.avgLow) : null);
       if (e?.avgHigh != null && e.avgLow != null) spreads.push(e.avgHigh - e.avgLow);
       if (e && d.timestamp >= FULL_VOLUME_SINCE) vols.push(Math.min(e.volHigh, e.volLow));
     }
@@ -97,6 +101,8 @@ export function aggregateMonth(blocks: DayBlock[]): Map<number, MonthAgg> {
       volWeaker: median(vols),
       min: r2(Math.min(...active)),
       max: r2(Math.max(...active)),
+      hi: his,
+      lo: los,
     });
   }
   return out;

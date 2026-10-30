@@ -244,7 +244,7 @@ export default function ItemDetailPage() {
                     <dt className="text-muted">Speed</dt><dd className="text-right"><Badge tone={TIER_TONE[tier]}>{tier}</Badge></dd>
                     <dt className="text-muted">Your avg hold</dt><dd className="num text-right">{own ? `${duration(own.avgHoldMs)} · ${own.sales} sale${own.sales === 1 ? "" : "s"}` : "–"}</dd>
                   </dl>
-                  <p className="text-[11px] text-faint">* Time the whole market needs to trade your quantity at the 24 h rate. You share it with other flippers. <Link href="/speed" className="underline">Compare items</Link></p>
+                  <p className="text-[11px] text-faint">* Time the whole market needs to trade your quantity at the 24 h rate. You share it with other flippers. <Link href="/scanner?view=speed" className="underline">Compare items</Link></p>
                 </>
               );
             })()}

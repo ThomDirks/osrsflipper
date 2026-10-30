@@ -90,6 +90,13 @@ export const SettingsSchema = z.object({
     })
     .default({ minVolume24h: 500, minCoverage: 10, capitalPerFlip: null, sort: "reward", hideHeld: false, flags: [] }),
   notificationsEnabled: z.boolean().default(false),
+  /** Own presets for the Flip Scanner and Top 10 (filters are merged with the defaults when applied) */
+  marketPresets: z
+    .array(z.object({ id: z.string().min(1).max(40), name: z.string().min(1).max(60), filters: z.record(z.string(), z.unknown()) }))
+    .max(50)
+    .default([]),
+  /** Items marked "not interested" (hidden from the scanner and Top 10) */
+  dismissedItems: z.array(z.number().int().positive()).max(5000).default([]),
   /** Halte-Alarme: Preisbewegungen bei Items, die man noch offen hält */
   holdingAlerts: z
     .object({
@@ -103,10 +110,12 @@ export const SettingsSchema = z.object({
       /** Warnen, sobald ein Verkauf zum aktuellen Preis Verlust bringen würde */
       lossWarning: z.boolean().default(true),
       sound: z.boolean().default(true),
+      /** Also ping when a watchlist item hits one of its targets */
+      watchlist: z.boolean().default(true),
       /** Gleicher Alarm für denselben Trade frühestens nach so vielen Minuten erneut */
       cooldownMinutes: z.number().int().min(5).max(1440).default(60),
     })
-    .default({ enabled: true, upPct: 0.05, downPct: 0.05, suddenPct: 0.08, lossWarning: true, sound: true, cooldownMinutes: 60 }),
+    .default({ enabled: true, upPct: 0.05, downPct: 0.05, suddenPct: 0.08, lossWarning: true, sound: true, watchlist: true, cooldownMinutes: 60 }),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

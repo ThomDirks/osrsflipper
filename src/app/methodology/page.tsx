@@ -123,6 +123,22 @@ export default function MethodologyPage() {
         <li><b>Returns</b>: on capital used = profit ÷ (quantity × buy price); on your capital = profit ÷ the capital you entered; per hour = return on capital used ÷ the hours both sides need to fill (at least 15 minutes).</li>
       </ul>
 
+      <H>Flip Scanner: signals, presets, time away, slot planner</H>
+      <ul>
+        <li><b>Signals</b> use one price per day over the last 30 days (daily averages from the Wiki’s bulk data) plus the current price: 7-day sparkline, price now vs the 7- and 30-day median, RSI 14 on daily prices, the 7-day trend (more than ±0.5% per day counts as up or down), and on how many of the last 7 days the margin after tax was positive.</li>
+        <li><b>Presets</b> start from the default filters and set only what differs, including their own sort. Your own presets are stored with your settings (and in backups).</li>
+        <li><b>Time away</b>: the quantity is cut so both sides fill within the hours you’re away at your share of the flow (the “within reason” share): quantity ≤ hours × share ÷ (24 ÷ instant-sells per day + 24 ÷ instant-buys per day).</li>
+        <li><b>Slot planner</b> walks down the current list (filters and sort) and takes one item per free GE slot, skipping items you hold or have offers on and outliers, with at most the chosen share of the budget in one item. Nothing is logged until you press the button; logged lines become buy offers with an expected sale price.</li>
+        <li><b>Not interested</b> hides an item from the scanner, Top 10 and Big Trades until you show it again.</li>
+      </ul>
+
+      <H>Big Trades (lock-in mode)</H>
+      <ul>
+        <li>Items whose profit in one flip at a realistic quantity (within reason, at your whole capital) is at least the chosen minimum (default 5M).</li>
+        <li><b>Verified</b> = all checks hold: the older price is at most 30 minutes old; both sides traded in the last hour; the margin is still there at the last hour’s average prices (at least half of it); the slower side traded at least twice your quantity (and 5) in 24 h; no outlier flag and plausible data; and the item actually swings (hourly variation over 24 h or daily variation over 30 days at least the chosen minimum, default 3%).</li>
+        <li>Lock-in level from the best verified flip as a share of your capital: 5 ≥ 50%, 4 ≥ 25%, 3 ≥ 10%, 2 ≥ 3%, otherwise 1.</li>
+      </ul>
+
       <H>Decanting</H>
       <ul>
         <li>Potions with dose variants (1)–(4) are grouped by name. Charged jewellery, waterskins and barbarian mixes are left out. Decanting at Bob Barter (GE) or Zahur (Prifddinas) is free.</li>

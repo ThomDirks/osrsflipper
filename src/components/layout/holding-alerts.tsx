@@ -4,8 +4,8 @@ import { Bell, BellRing } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMarket, useRowMap } from "@/hooks/market";
-import { dueSignals, holdingSignals, type HoldingSignal } from "@/lib/analysis/holding-alerts";
+import { useCandidates, useMarket, useRowMap } from "@/hooks/market";
+import { dueSignals, holdingSignals, watchSignals, type HoldingSignal } from "@/lib/analysis/holding-alerts";
 import { agoFromUnix } from "@/lib/format";
 import { newId } from "@/lib/storage/db";
 import { cn } from "@/lib/utils";
@@ -18,12 +18,16 @@ const PREFIX = "hold:";
 export function useHoldingSignals(): HoldingSignal[] {
   const rows = useRowMap();
   const trades = useDataStore((s) => s.trades);
+  const watchlist = useDataStore((s) => s.watchlist);
   const settings = useSettings();
   const cfg = settings.holdingAlerts;
-  return useMemo(
-    () => (cfg.enabled ? holdingSignals(trades, rows, settings.priceOffset, cfg) : []),
-    [trades, rows, settings.priceOffset, cfg],
-  );
+  const { candidates } = useCandidates();
+  const byId = useMemo(() => (watchlist.length ? new Map(candidates.map((c) => [c.id, c])) : new Map()), [candidates, watchlist.length]);
+  return useMemo(() => {
+    if (!cfg.enabled) return [];
+    const held = holdingSignals(trades, rows, settings.priceOffset, cfg);
+    return cfg.watchlist ? [...held, ...watchSignals(watchlist, byId)] : held;
+  }, [trades, rows, settings.priceOffset, cfg, watchlist, byId]);
 }
 
 /** Short two-tone chime (Web Audio, no sound file needed). */
@@ -136,8 +140,8 @@ export function HoldingAlertsBell() {
       <Popover.Portal>
         <Popover.Content align="end" sideOffset={6} className="z-50 w-[min(92vw,380px)] rounded-lg border border-border bg-surface shadow-lg animate-fade-in" data-testid="alerts-panel">
           <div className="border-b border-border px-3 py-2">
-            <div className="text-sm font-semibold">Items you hold</div>
-            <div className="text-[11px] text-muted">Big price moves since you bought. Thresholds in Settings.</div>
+            <div className="text-sm font-semibold">Price alerts</div>
+            <div className="text-[11px] text-muted">Big moves on items you hold, and watchlist targets hit. Thresholds in Settings.</div>
           </div>
           <ul className="max-h-[50vh] divide-y divide-border overflow-y-auto">
             {signals.length === 0 && <li className="px-3 py-3 text-xs text-muted">Nothing unusual right now.</li>}

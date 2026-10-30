@@ -81,6 +81,7 @@ export function HoldingAlertSettingsCard() {
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <label className="flex items-center gap-2"><input type="checkbox" checked={cfg.lossWarning} onChange={(e) => set({ lossWarning: e.target.checked })} /> Warn when selling now would lose money</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={cfg.sound} onChange={(e) => set({ sound: e.target.checked })} /> Play a sound</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={cfg.watchlist} onChange={(e) => set({ watchlist: e.target.checked })} data-testid="hold-watchlist" /> Also when a watchlist item hits its targets</label>
           {perm === "granted" ? (
             <label className="flex items-center gap-2"><input type="checkbox" checked={s.notificationsEnabled} onChange={(e) => update({ notificationsEnabled: e.target.checked })} data-testid="hold-desktop" /> Desktop notifications</label>
           ) : (

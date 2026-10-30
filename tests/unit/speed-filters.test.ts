@@ -6,10 +6,10 @@ const row = (p: Partial<SpeedRow>): SpeedRow => ({
   id: 1, name: "Item", icon: "", limit: 100, qty: 100, buys1h: 50, sells1h: 50, buys24h: 1000, sells24h: 1000, buyShare: 0.5,
   buyFillMin: 10, sellFillMin: 10, cycleMin: 20, tier: "very fast", netMargin: 10, profit: 1000, ownSales: 0, ownAvgHoldMs: null,
   roi: 0.02, price: 500, category: "Potions", members: true, taxExempt: false,
-  rawQty: 100, capped: false, capitalUsed: 50_000, returnOnUsed: 0.02, returnOnCapital: 0.0001, returnPerHour: 0.06, outlier: null, ...p,
+  rawQty: 100, capped: false, capitalUsed: 50_000, returnOnUsed: 0.02, returnOnCapital: 0.0001, returnPerHour: 0.06, outlier: null, c: undefined as never, sig: null, ...p,
 });
 const none = new Set<number>();
-const f = (p: Partial<typeof DEFAULT_SPEED_FILTERS>) => ({ ...DEFAULT_SPEED_FILTERS, minVolume: null, ...p });
+const f = (p: Partial<typeof DEFAULT_SPEED_FILTERS>) => ({ ...DEFAULT_SPEED_FILTERS, minVolume: null, sort: "cycle" as const, ...p });
 
 describe("Flip Speed filters", () => {
   const rows = [

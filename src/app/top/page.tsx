@@ -12,6 +12,13 @@ import { Card } from "@/components/ui/card";
 import { AmountInput, Field, Select } from "@/components/ui/input";
 import { Tip } from "@/components/ui/tooltip";
 import { useCandidates, useMarket } from "@/hooks/market";
+import { useMarketRows, type QtyBasis } from "@/hooks/market-rows";
+import { MarketFilterBar } from "@/components/market/filter-bar";
+import { SlotPlanner } from "@/components/market/slot-planner";
+import type { SpeedRow } from "@/lib/analysis/speed";
+import { activeFilterCount, DEFAULT_SPEED_FILTERS, type SpeedFilters } from "@/lib/analysis/speed-filters";
+import { useLocalState } from "@/lib/ui/use-local-state";
+import { CalendarClock, SlidersHorizontal } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePortfolio } from "@/hooks/portfolio";
 import { HISTORY_FLAG_LABEL, type HistoryFlag } from "@/lib/analysis/history-check";
@@ -188,7 +195,16 @@ interface TopConfig {
 /** Steuerleiste + Liste; wird für „Standard“ und „High Value“ mit unterschiedlicher Konfiguration verwendet. */
 type TopMode = "standard" | "highValue" | "volatile";
 
-function TopView({ mode, cfg, setCfg, baseCapital, capitalHint, onCapital, capitalOverride }: {
+interface SharedFilter {
+  /** null = no market filter active */
+  allowed: ReadonlySet<number> | null;
+  /** "Within reason": max share of the slower side's 24 h trades (null = off) */
+  share: number | null;
+  rows: ReadonlyMap<number, SpeedRow>;
+}
+
+function TopView({ mode, cfg, setCfg, baseCapital, capitalHint, onCapital, capitalOverride, shared }: {
+  shared: SharedFilter;
   mode: TopMode;
   cfg: TopConfig;
   setCfg: (patch: Partial<TopConfig>) => void;
@@ -207,20 +223,31 @@ function TopView({ mode, cfg, setCfg, baseCapital, capitalHint, onCapital, capit
   const tid = hv ? "hv" : vol ? "vol" : "top";
   const defaultPerFlip = hv ? baseCapital : Math.floor(baseCapital / Math.max(1, settings.geSlots));
   const perFlip = cfg.capitalPerFlip ?? defaultPerFlip;
-  const { candidates, isLoading, error } = useCandidates(perFlip);
+  const { candidates: allCandidates, isLoading, error } = useCandidates(perFlip);
+  const candidates = useMemo(() => (shared.allowed ? allCandidates.filter((c) => shared.allowed!.has(c.id)) : allCandidates), [allCandidates, shared.allowed]);
 
   const held = useMemo(() => new Set(trades.filter((tr) => tr.offers.length > 0 || summary.summaries.some((s) => s.tradeId === tr.id && s.openQty > 0)).map((tr) => tr.itemId)), [trades, summary.summaries]);
   // Volatile: alle markierten Items holen, Anzahl je Grund zählen, dann nach gewählten Gründen filtern
   const { result, flagCounts } = useMemo(() => {
     const sort = !vol && cfg.sort === "reward" ? "profit" : cfg.sort;
     const r = topBuys(candidates, { minVolume24h: cfg.minVolume24h, minCoverage: cfg.minCoverage, sort, minProfit: cfg.minProfit, excludeIds: cfg.hideHeld ? held : undefined, limit: vol ? Infinity : limit, history: vol ? "only" : "exclude" });
+    // Within reason: never more than a share of the slower side's daily trades
+    if (shared.share != null) {
+      r.picks = r.picks.map((p) => {
+        const row = shared.rows.get(p.c.id);
+        if (!row) return p;
+        const cap = Math.max(1, Math.floor(Math.min(row.buys24h, row.sells24h) * shared.share!));
+        if (p.qty <= cap) return p;
+        return { ...p, qty: cap, qtyReducedByVolume: true, profit: cap * p.margin, capital: cap * (p.c.estBuy ?? 0) };
+      });
+    }
     const counts: Partial<Record<HistoryFlag, number>> = {};
     if (!vol) return { result: r, flagCounts: counts };
     for (const p of r.picks) if (p.flag) counts[p.flag] = (counts[p.flag] ?? 0) + 1;
     const sel = cfg.flags ?? [];
     const picks = (sel.length ? r.picks.filter((p) => p.flag && sel.includes(p.flag)) : r.picks).slice(0, limit);
     return { result: { ...r, picks }, flagCounts: counts };
-  }, [candidates, cfg.minVolume24h, cfg.minCoverage, cfg.sort, cfg.minProfit, cfg.hideHeld, cfg.flags, held, limit, vol]);
+  }, [candidates, cfg.minVolume24h, cfg.minCoverage, cfg.sort, cfg.minProfit, cfg.hideHeld, cfg.flags, held, limit, vol, shared.share, shared.rows]);
   const toggleFlag = (f: HistoryFlag) => {
     const sel = cfg.flags ?? [];
     setCfg({ flags: sel.includes(f) ? sel.filter((x) => x !== f) : [...sel, f] });
@@ -383,13 +410,41 @@ export default function TopPage() {
   const [tab, setTab] = useState<TopMode>("standard");
   const baseCapital = capitalOverride ?? (hasData && summary.available > 0 ? summary.available : settings.defaultCapital);
   const capitalHint = hasData ? "from portfolio (available)" : "from settings";
+  // Same filters, presets and "within reason" as the Flip Scanner (own remembered state)
+  const [f, setF] = useLocalState<SpeedFilters>("osrs-ge-flipper:top-filters:v1", { ...DEFAULT_SPEED_FILTERS, profitableOnly: false, minVolume: null });
+  const [basis, setBasis] = useState<QtyBasis>("capital");
+  const [showFilters, setShowFilters] = useState(false);
+  const [planning, setPlanning] = useState(false);
+  const perFlip = Math.floor(baseCapital / Math.max(1, settings.geSlots));
+  const market = useMarketRows(f, basis, perFlip);
+  const active = activeFilterCount(f) + (f.query ? 1 : 0);
+  const rowsById = useMemo(() => new Map(market.all.map((r) => [r.id, r])), [market.all]);
+  const shared: SharedFilter = useMemo(
+    () => ({ allowed: active > 0 || f.realistic ? new Set(market.shown.map((r) => r.id)) : null, share: f.realistic ? f.maxShare : null, rows: rowsById }),
+    [active, f.realistic, f.maxShare, market.shown, rowsById],
+  );
 
   return (
     <div className="animate-fade-in">
       <PageHeader
         title="Top 10 Buys"
         description="The best flip candidates right now: enough trade volume, checked against the last 30 days for spikes, downtrends and erratic prices. Estimates from the last observed prices – no guarantee that offers will fill."
+        actions={
+          <div className="flex gap-2">
+            <Button variant={showFilters ? "secondary" : "outline"} onClick={() => setShowFilters(!showFilters)} data-testid="top-toggle-filters">
+              <SlidersHorizontal /> Filters & presets{active ? ` (${active})` : ""}
+            </Button>
+            <Button variant="outline" onClick={() => setPlanning(true)} data-testid="top-open-planner"><CalendarClock /> Plan my slots</Button>
+          </div>
+        }
       />
+      {showFilters && (
+        <Card className="mb-3 p-3" data-testid="top-filters">
+          <MarketFilterBar f={f} setF={setF} basis={basis} setBasis={setBasis} capital={capitalOverride} setCapital={setCapitalOverride} all={market.all} outliers={market.outliers} testPrefix="top10" />
+          <p className="mt-2 text-[11px] text-faint">These filters decide which items may appear in the lists below ({market.shown.length} match). Each tab keeps its own ranking and volume rules.</p>
+        </Card>
+      )}
+      {planning && <SlotPlanner rows={market.shown} capital={baseCapital} open onOpenChange={setPlanning} />}
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList className="mb-3" aria-label="List">
           <TabsTrigger value="standard" data-testid="tab-standard">Standard</TabsTrigger>
@@ -405,6 +460,7 @@ export default function TopPage() {
             capitalHint={capitalHint}
             capitalOverride={capitalOverride}
             onCapital={setCapitalOverride}
+            shared={shared}
           />
         </TabsContent>
         <TabsContent value="highValue">
@@ -416,6 +472,7 @@ export default function TopPage() {
             capitalHint={capitalHint}
             capitalOverride={capitalOverride}
             onCapital={setCapitalOverride}
+            shared={shared}
           />
         </TabsContent>
         <TabsContent value="volatile">
@@ -427,6 +484,7 @@ export default function TopPage() {
             capitalHint={capitalHint}
             capitalOverride={capitalOverride}
             onCapital={setCapitalOverride}
+            shared={shared}
           />
         </TabsContent>
       </Tabs>

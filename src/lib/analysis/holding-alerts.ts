@@ -1,6 +1,6 @@
 import { breakEvenSellPrice } from "../calc/profit";
 import { computeFifo, estimateOpenSale, recommendedSellPrice } from "../portfolio/fifo";
-import type { Trade } from "../portfolio/schemas";
+import type { Trade, WatchItem } from "../portfolio/schemas";
 import type { MarketRow } from "../market/types";
 
 /**
@@ -11,7 +11,7 @@ import type { MarketRow } from "../market/types";
  * - break-even (selling now would lose money; from 15 min after the latest buy).
  */
 
-export type HoldingAlertKind = "target" | "above" | "below" | "loss" | "jump" | "crash";
+export type HoldingAlertKind = "target" | "above" | "below" | "loss" | "jump" | "crash" | "watchBuy" | "watchSell" | "watchMargin" | "watchRoi";
 
 export interface HoldingAlertConfig {
   upPct: number;
@@ -101,4 +101,24 @@ export function dueSignals(signals: HoldingSignal[], lastFired: ReadonlyMap<stri
     const last = lastFired.get(s.key);
     return last == null || now - last >= cooldownMinutes * 60_000;
   });
+}
+
+/** Watchlist opportunities: an item you watch hits one of your own targets. */
+export function watchSignals(
+  watchlist: WatchItem[],
+  byId: ReadonlyMap<number, { name: string; latestLow: number | null; latestHigh: number | null; netMargin: number | null; roi: number | null }>,
+): HoldingSignal[] {
+  const out: HoldingSignal[] = [];
+  for (const w of watchlist) {
+    const c = byId.get(w.itemId);
+    if (!c) continue;
+    const base = { tradeId: `watch-${w.itemId}`, itemId: w.itemId, itemName: c.name, openQty: 0, sellNow: c.latestHigh ?? 0, profitNow: null, tone: "pos" as const };
+    const push = (kind: HoldingAlertKind, title: string, detail: string, reference: number, now: number | null) =>
+      out.push({ ...base, key: `watch:${w.itemId}:${kind}`, kind, title, detail, reference, change: now != null && reference ? (now - reference) / reference : null });
+    if (w.targetBuy != null && c.latestLow != null && c.latestLow <= w.targetBuy) push("watchBuy", `Watchlist: ${c.name} hit your buy price`, `Instant-sell now ${gp(c.latestLow)}, your target ${gp(w.targetBuy)}.`, w.targetBuy, c.latestLow);
+    if (w.targetSell != null && c.latestHigh != null && c.latestHigh >= w.targetSell) push("watchSell", `Watchlist: ${c.name} hit your sell price`, `Instant-buy now ${gp(c.latestHigh)}, your target ${gp(w.targetSell)}.`, w.targetSell, c.latestHigh);
+    if (w.targetMargin != null && c.netMargin != null && c.netMargin >= w.targetMargin) push("watchMargin", `Watchlist: ${c.name} margin is ${gp(c.netMargin)}`, `Your target margin: ${gp(w.targetMargin)} after tax.`, w.targetMargin, c.netMargin);
+    if (w.targetRoi != null && c.roi != null && c.roi >= w.targetRoi) push("watchRoi", `Watchlist: ${c.name} ROI is ${(c.roi * 100).toFixed(1)}%`, `Your target ROI: ${(w.targetRoi * 100).toFixed(1)}%.`, w.targetRoi, c.roi);
+  }
+  return out;
 }

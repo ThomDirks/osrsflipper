@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useSettings, useSettingsStore } from "@/state/settings";
 import { THEMES } from "@/lib/ui/themes";
 import { HoldingAlertsBell, HoldingAlertsWatcher, useHoldingSignals } from "./holding-alerts";
+import { LockinLayer, LockinToggle } from "@/components/lockin/lockin";
 import { DataStatus, FixtureBanner, StaleBanner } from "./data-status";
 import { MOBILE_TABS, NAV, NAV_GROUPS, NAV_TONES, type NavGroupKey } from "./nav";
 import { SearchCommand } from "./search-command";
@@ -198,6 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen">
       <FixtureBanner />
       <HoldingAlertsWatcher />
+      <LockinLayer />
       {/* Desktop-Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-surface px-3 py-4 md:flex">
         <Logo />
@@ -258,6 +260,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <FolderStatusChip />
           <DataStatus />
+          <LockinToggle />
           <HoldingAlertsBell />
           <ThemeToggle />
         </header>

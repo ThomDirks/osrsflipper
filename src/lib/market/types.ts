@@ -134,6 +134,9 @@ export interface MonthAgg {
   volWeaker: number | null;
   min: number;
   max: number;
+  /** Daily avg instant-buy / instant-sell, oldest first (one entry per loaded day; null = no trades that side) */
+  hi?: Array<number | null>;
+  lo?: Array<number | null>;
 }
 
 export interface HistoryResponse {

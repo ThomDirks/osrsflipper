@@ -1,4 +1,4 @@
-import { Calculator, Eye, FlaskConical, Gauge, History, LayoutDashboard, Radar, Settings, Trophy, Wallet } from "lucide-react";
+import { Calculator, Eye, FlaskConical, History, LayoutDashboard, Radar, Settings, Trophy, Wallet } from "lucide-react";
 
 /** Farbton des Icon-Chips (Klassen müssen statisch sein, damit Tailwind sie findet) */
 export const NAV_TONES = {
@@ -14,7 +14,6 @@ export const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, tone: "gold" },
   { href: "/top", label: "Top 10 Buys", icon: Trophy, tone: "gold" },
   { href: "/scanner", label: "Flip Scanner", icon: Radar, tone: "blue" },
-  { href: "/speed", label: "Flip Speed", icon: Gauge, tone: "blue" },
   { href: "/decant", label: "Decanting", icon: FlaskConical, tone: "violet" },
   { href: "/calculator", label: "Profit Calculator", icon: Calculator, tone: "green" },
   { href: "/history", label: "Flip History", icon: History, tone: "violet" },
@@ -27,7 +26,7 @@ export const MOBILE_TABS = ["/", "/top", "/scanner", "/history", "/calculator"] 
 
 /** Sidebar groups (hrefs from NAV). Items without a group render on their own. */
 export const NAV_GROUPS = [
-  { key: "find", label: "Find flips", hrefs: ["/top", "/scanner", "/speed", "/decant"] },
+  { key: "find", label: "Find flips", hrefs: ["/top", "/scanner", "/decant"] },
   { key: "mine", label: "My trades", hrefs: ["/history", "/portfolio", "/watchlist"] },
   { key: "tools", label: "Tools", hrefs: ["/calculator", "/settings"] },
 ] as const;

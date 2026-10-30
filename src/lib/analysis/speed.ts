@@ -1,8 +1,9 @@
-import type { MarketRow } from "../market/types";
+import type { MarketRow, MonthAgg } from "../market/types";
 import type { Trade } from "../portfolio/schemas";
 import { computeFifo } from "../portfolio/fifo";
 import type { Category } from "./category";
 import type { FlipCandidate } from "./scanner";
+import { itemSignals, type ItemSignals } from "./signals";
 
 /**
  * Flip speed: how fast does the market trade both sides of an item?
@@ -60,6 +61,10 @@ export interface SpeedRow {
   returnPerHour: number | null;
   /** Why this row is not a realistic trade (null = fine) */
   outlier: string | null;
+  /** Full scanner data for this item (score, risk, quality, prices, age…) */
+  c: FlipCandidate;
+  /** Price-history signals (null until the 30-day baseline is loaded) */
+  sig: ItemSignals | null;
 }
 
 export interface RealismOptions {
@@ -81,6 +86,10 @@ export interface SpeedBuildOptions {
   realism?: RealismOptions | null;
   /** Your whole capital, for return on capital */
   capital?: number;
+  /** Time away (hours): size each flip so both sides fill within it at your share of the flow */
+  timeAwayHours?: number | null;
+  /** 30-day baseline for signals */
+  history?: Record<string, MonthAgg> | null;
 }
 
 export function speedTier(cycleMin: number | null): SpeedTier {
@@ -140,10 +149,16 @@ export function buildSpeedRows(
       // Within reason also means affordable: never more than your capital buys
       const affordable = opts.capital && c.estBuy ? Math.floor(opts.capital / c.estBuy) : Infinity;
       qty = Math.min(rawQty, cap, affordable);
+      // Time away: qty / (share × sell rate) + qty / (share × buy rate) ≤ hours
+      if (opts.timeAwayHours && opts.timeAwayHours > 0 && buys24h > 0 && sells24h > 0) {
+        const fitsInTime = Math.floor((opts.timeAwayHours * realism.maxShare) / (24 / sells24h + 24 / buys24h));
+        if (fitsInTime < qty) qty = fitsInTime;
+      }
       const spike = (last: number | null | undefined, avg: number | null | undefined) => (last != null && avg != null && avg > 0 ? Math.abs(last - avg) / avg : 0);
       const off = Math.max(spike(r?.high, r?.d1?.avgHigh), spike(r?.low, r?.d1?.avgLow));
       if (weaker < realism.minPerSide) outlier = `Only ${weaker} ${buys24h <= sells24h ? "buys" : "sells"} in 24 h`;
       else if (affordable < 1) outlier = "Your capital doesn’t buy even 1";
+      else if (qty < 1 && opts.timeAwayHours) outlier = `Won’t fill within ${opts.timeAwayHours} h at ${Math.round(realism.maxShare * 100)}% of the market`;
       else if (qty < 1) outlier = `Too little volume for even 1 item at ${Math.round(realism.maxShare * 100)}% of the market`;
       else if (off > realism.maxSpike) outlier = `Last price ${Math.round(off * 100)}% away from its 24 h average`;
       else if (c.roi != null && c.roi > realism.maxRoi) outlier = `ROI over ${Math.round(realism.maxRoi * 100)}% usually means a stale or one-off price`;
@@ -187,6 +202,8 @@ export function buildSpeedRows(
       returnOnCapital: profit != null && opts.capital ? profit / opts.capital : null,
       returnPerHour: returnOnUsed != null && cycleMin != null ? returnOnUsed / (Math.max(cycleMin, 15) / 60) : null,
       outlier,
+      c,
+      sig: itemSignals(c.id, opts.history?.[String(c.id)], r),
     });
   }
   return out;
